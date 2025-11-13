@@ -1,3 +1,30 @@
+# Build artifacts
 build/
 *.o
+*.a
+*.so
+*.dylib
+
+# Executables
+mycommand
+picobox
+
+# Editor files
 *.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Debug files
+*.dSYM/
+core
+vgcore.*
+
+# Test artifacts
+*.log
+*.tmp
