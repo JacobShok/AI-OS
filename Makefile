@@ -6,18 +6,22 @@ CC = gcc
 CFLAGS = -Wall -Wextra -Werror -std=c11 -O2 -g
 LDFLAGS =
 INCLUDES = -Iinclude
+BISON = /opt/homebrew/opt/bison/bin/bison
+FLEX = flex
 
 # Directories
 SRC_DIR = src
 BUILD_DIR = build
 INCLUDE_DIR = include
 TEST_DIR = tests
+BNFC_DIR = bnfc_shell
 
 # Target binary
 TARGET = $(BUILD_DIR)/picobox
 
 # Source files
 SRCS = $(SRC_DIR)/main.c $(SRC_DIR)/utils.c $(SRC_DIR)/shell.c \
+       $(SRC_DIR)/shell_bnfc.c \
        $(SRC_DIR)/cmd_echo.c $(SRC_DIR)/cmd_pwd.c $(SRC_DIR)/cmd_cat.c \
        $(SRC_DIR)/cmd_mkdir.c $(SRC_DIR)/cmd_touch.c $(SRC_DIR)/cmd_ls.c \
        $(SRC_DIR)/cmd_cp.c $(SRC_DIR)/cmd_rm.c $(SRC_DIR)/cmd_mv.c \
@@ -29,6 +33,11 @@ SRCS = $(SRC_DIR)/main.c $(SRC_DIR)/utils.c $(SRC_DIR)/shell.c \
        $(SRC_DIR)/cmd_false.c
 OBJS = $(SRCS:$(SRC_DIR)/%.c=$(BUILD_DIR)/%.o)
 
+# BNFC-generated files
+BNFC_SRCS = $(BNFC_DIR)/Absyn.c $(BNFC_DIR)/Buffer.c $(BNFC_DIR)/Printer.c \
+            $(BNFC_DIR)/shell_compat.c $(BNFC_DIR)/Shell.tab.c $(BNFC_DIR)/lex.yy.c
+BNFC_OBJS = $(BNFC_SRCS:$(BNFC_DIR)/%.c=$(BUILD_DIR)/bnfc_%.o)
+
 # Installation directory
 PREFIX = /usr/local
 BINDIR = $(PREFIX)/bin
@@ -39,25 +48,35 @@ COMMANDS = echo pwd cat mkdir touch ls cp rm mv head tail wc ln \
 
 # Default target
 .PHONY: all
-all: $(TARGET)
+all: bnfc $(TARGET)
 
 # Create build directory
 $(BUILD_DIR):
 	mkdir -p $(BUILD_DIR)
 
-# Build the main binary
-$(TARGET): $(BUILD_DIR) $(OBJS)
-	$(CC) $(LDFLAGS) -o $(TARGET) $(OBJS)
+# Generate BNFC parser files
+.PHONY: bnfc
+bnfc:
+	@cd $(BNFC_DIR) && $(MAKE) --no-print-directory
+
+# Build the main binary (including BNFC objects)
+$(TARGET): $(BUILD_DIR) $(OBJS) $(BNFC_OBJS)
+	$(CC) $(LDFLAGS) -o $(TARGET) $(OBJS) $(BNFC_OBJS)
 	@echo "Build complete: $(TARGET)"
 
 # Compile source files to object files
 $(BUILD_DIR)/%.o: $(SRC_DIR)/%.c
 	$(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
 
+# Compile BNFC-generated files to object files (with relaxed warnings)
+$(BUILD_DIR)/bnfc_%.o: $(BNFC_DIR)/%.c
+	$(CC) -Wall -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-sign-compare -std=c11 -O2 -g -c -o $@ $<
+
 # Clean build artifacts
 .PHONY: clean
 clean:
 	rm -rf $(BUILD_DIR)
+	@cd $(BNFC_DIR) && $(MAKE) clean --no-print-directory 2>/dev/null || true
 	@echo "Build artifacts cleaned"
 
 # Install binary and create symlinks

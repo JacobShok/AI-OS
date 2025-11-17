@@ -1,1403 +1,2463 @@
-# PicoBox Implementation Plan - 2 Week Sprint
+# BNFC Shell Implementation Plan
+## Incremental Development with Continuous Testing
 
-## Overview
-Build 22+ essential Unix commands incrementally, with each day producing working, testable code. Start with infrastructure, then simple file commands, progressing to complex utilities.
-
----
-
-## **Week 1: Foundation & Core File Commands**
-
-### **Day 1: Build System & Core Infrastructure**
-**Goal:** Create the foundation that all commands will build upon
-
-**Tasks:**
-1. Create Makefile with incremental build support
-2. Implement main.c dispatcher (argv[0] parsing, symlink detection)
-3. Build shared utility library (error handling, string utils, path manipulation)
-4. Create test framework skeleton
-
-**Deliverable:** Working dispatcher that can route to stub commands
-
-**Files to create:**
-- `Makefile` - Build system with clean, all, install targets
-- `src/main.c` - Command dispatcher
-- `src/utils.c` - Shared utility functions
-- `include/picobox.h` - Main header with command prototypes
-- `include/utils.h` - Utility function declarations
-- `tests/test_utils.c` - Unit tests for utilities
+**Version:** 1.0  
+**Target:** Transform PicoBox simple shell into BNFC-powered shell with pipes and redirections  
+**Philosophy:** Test every single step. No blind coding. Each phase must pass tests before moving to the next.
 
 ---
 
-### **Day 2-3: First 5 File System Commands**
-**Goal:** Implement simple commands to validate architecture
+## 📋 Table of Contents
 
-**Commands to implement:**
-1. `echo` - Print arguments to stdout
-2. `pwd` - Print working directory
-3. `cat` - Concatenate files to stdout
-4. `mkdir` - Create directories
-5. `touch` - Create empty file or update timestamp
-
-**Deliverable:** 5 working commands with --help support and tests
-
----
-
-### **Day 4-5: File Operations (Part 1)**
-**Goal:** Core file manipulation
-
-**Commands to implement:**
-6. `ls` - List directory contents
-7. `cp` - Copy files/directories
-8. `rm` - Remove files/directories
-9. `mv` - Move/rename files
-
-**Deliverable:** Core file manipulation working with recursive support
+1. [Current State Analysis](#phase-0-current-state-analysis)
+2. [Prerequisites & Setup](#phase-1-prerequisites--setup)
+3. [BNFC Calculator Learning](#phase-2-bnfc-calculator-learning)
+4. [Simple Grammar Integration](#phase-3-simple-grammar-integration)
+5. [Fork/Exec Implementation](#phase-4-forkexec-implementation)
+6. [Pipes Implementation](#phase-5-pipes-implementation)
+7. [Redirections Implementation](#phase-6-redirections-implementation)
+8. [Background Jobs](#phase-7-background-jobs)
+9. [Integration & Polish](#phase-8-integration--polish)
+10. [Testing Strategy](#testing-strategy)
 
 ---
 
-### **Day 6-7: File Operations (Part 2) & Text Processing**
-**Goal:** Complete basic file operations and add text processing
+## PHASE 0: Current State Analysis
 
-**Commands to implement:**
-10. `head` - Output first N lines
-11. `tail` - Output last N lines
-12. `wc` - Count lines, words, bytes
-13. `ln` - Create hard/symbolic links
+### What We Have ✅
+```
+picobox/
+├── main.c              # Entry point with command dispatcher
+├── shell.c             # Simple REPL shell (IN-PROCESS execution)
+├── utils.c/h           # Helper functions
+├── picobox.h           # Main header
+├── cmd_*.c             # 25+ individual command implementations
+└── Makefile            # Build system
+```
 
-**Deliverable:** 13 commands complete, comprehensive tests
+### Current Shell Capabilities
+- ✅ Command dispatcher (finds functions by name)
+- ✅ Built-in commands: `cd`, `exit`, `help`
+- ✅ Basic line parsing (handles quotes, whitespace)
+- ✅ IN-PROCESS execution (calls functions directly)
+- ❌ NO fork/exec (all commands run in same process)
+- ❌ NO pipes
+- ❌ NO redirections
+- ❌ NO background jobs
+- ❌ NO grammar-based parsing
 
----
+### Critical Insights
+1. **Current execution model is WRONG for a real shell**
+   - Commands run as function calls, not separate processes
+   - `cat` reads files directly in shell process
+   - No process isolation
+   
+2. **Need to preserve existing command implementations**
+   - These will become the fallback for symlink mode
+   - Shell mode will use fork/exec instead
 
-## **Week 2: Advanced Commands & System Utilities**
-
-### **Day 8-9: Search & Pattern Matching**
-**Goal:** Implement search utilities
-
-**Commands to implement:**
-14. `grep` - Search text using patterns
-15. `find` - Search for files in directory hierarchy
-16. `basename` - Strip directory from pathname
-17. `dirname` - Extract directory from pathname
-
-**Deliverable:** Search utilities working with basic regex
-
----
-
-### **Day 10-11: File Permissions & System Info**
-**Goal:** File metadata and permissions
-
-**Commands to implement:**
-18. `chmod` - Change file permissions
-19. `stat` - Display file status
-20. `du` - Estimate file space usage
-21. `df` - Report file system disk space usage
-
-**Deliverable:** 21 commands complete
-
----
-
-### **Day 12-13: Process & Environment + Extras**
-**Goal:** Environment and simple process control
-
-**Commands to implement:**
-22. `env` - Display environment variables
-23. `sleep` - Delay for specified time
-24. `true` - Return success (exit 0)
-25. `false` - Return failure (exit 1)
-
-**Bonus commands if time permits:**
-- `cut` - Remove sections from lines
-- `sort` - Sort lines of text
-- `uniq` - Report or omit repeated lines
-
-**Deliverable:** 25+ commands, full suite
+3. **BNFC will replace `parse_line()` function**
+   - Current: Manual tokenization with quotes
+   - Future: BNFC lexer → parser → AST
 
 ---
 
-### **Day 14: Polish, Testing & Documentation**
-**Goal:** Production-ready release
+## PHASE 1: Prerequisites & Setup
 
-**Tasks:**
-1. Comprehensive test suite for all commands
-2. Memory leak checking with valgrind
-3. Performance optimization
-4. Create symlinks for all commands
-5. Write user documentation (README.md)
-6. Create installation script
+**Goal:** Install BNFC and verify toolchain works  
+**Time Estimate:** 30-60 minutes  
+**Success Criteria:** Can compile and run calculator example
 
-**Deliverable:** Production-ready PicoBox
+### 1.1 Install BNFC
 
----
-
-## Detailed Command Specifications
-
-### **1. echo**
-**What it does:** Print arguments to stdout with optional newline
-
-**Essential options:**
-- `-n` - Don't output trailing newline
-
-**System calls/APIs:**
-- `write()` or `printf()`
-
-**Input/output:**
-- Input: Command-line arguments
-- Output: Arguments printed to stdout
-
-**Error cases:**
-- None (echo always succeeds)
-
-**Testing:**
 ```bash
-./echo "hello world"           # hello world\n
-./echo -n "no newline"         # no newline (no \n)
-./echo                         # \n
-./echo "multiple" "args"       # multiple args\n
+# Option 1: Using package manager (Ubuntu/Debian)
+sudo apt-get update
+sudo apt-get install bnfc
+
+# Option 2: From releases (if package not available)
+wget https://github.com/BNFC/bnfc/releases/download/v2.9.6/bnfc-2.9.6-linux.binary
+chmod +x bnfc-2.9.6-linux.binary
+sudo mv bnfc-2.9.6-linux.binary /usr/local/bin/bnfc
+
+# Verify installation
+bnfc --version
 ```
 
----
+### 1.2 Install Required Tools
 
-### **2. pwd**
-**What it does:** Print current working directory
-
-**Essential options:**
-- `-L` - Use PWD from environment (logical)
-- `-P` - Print physical directory (resolve symlinks)
-
-**System calls/APIs:**
-- `getcwd()`
-- `getenv("PWD")`
-
-**Input/output:**
-- Input: None (uses current process state)
-- Output: Absolute path to stdout
-
-**Error cases:**
-- Directory deleted/inaccessible
-- Path too long for buffer
-
-**Testing:**
 ```bash
-./pwd                          # /current/directory
-cd /tmp && ../picobox/pwd      # /tmp
+# Install Flex, Bison, and build tools
+sudo apt-get install flex bison build-essential
+
+# Verify installations
+flex --version
+bison --version
+gcc --version
 ```
 
----
+### 1.3 Create Project Structure
 
-### **3. cat**
-**What it does:** Concatenate files and print to stdout
-
-**Essential options:**
-- `-n` - Number all output lines
-- No args - read from stdin
-
-**System calls/APIs:**
-- `open()`, `read()`, `write()`, `close()`
-- `fopen()`, `fread()`, `fwrite()`, `fclose()`
-
-**Input/output:**
-- Input: Files or stdin
-- Output: File contents to stdout
-
-**Error cases:**
-- File doesn't exist
-- Permission denied
-- Is a directory
-
-**Testing:**
 ```bash
-./cat file.txt                 # contents of file.txt
-./cat file1.txt file2.txt      # concatenated
-./cat < input.txt              # from stdin
-./cat -n file.txt              # with line numbers
+# In your picobox directory
+mkdir -p bnfc_shell/
+mkdir -p tests/cases/
+mkdir -p tests/expected/
+mkdir -p docs/
 ```
 
----
+### 1.4 Test Files
 
-### **4. mkdir**
-**What it does:** Create directories
+Create initial test directory structure:
 
-**Essential options:**
-- `-p` - Create parent directories as needed
-- `-m MODE` - Set permission mode
-
-**System calls/APIs:**
-- `mkdir()`
-- `stat()` to check existence
-
-**Input/output:**
-- Input: Directory path(s)
-- Output: None (creates directories)
-
-**Error cases:**
-- Directory already exists
-- Permission denied
-- Parent doesn't exist (without -p)
-
-**Testing:**
 ```bash
-./mkdir newdir                 # create newdir/
-./mkdir -p a/b/c               # create all
-./mkdir existing               # error: exists
+# Create test organization
+tests/
+├── cases/               # Input test cases
+│   ├── 00_empty.txt
+│   ├── 01_simple.txt
+│   ├── 02_pipe.txt
+│   └── ...
+├── expected/            # Expected outputs
+│   ├── 00_empty.txt
+│   ├── 01_simple.txt
+│   └── ...
+└── run_tests.sh        # Test runner script
 ```
 
----
+### ✅ Verification Tests
 
-### **5. touch**
-**What it does:** Create empty file or update timestamp
-
-**Essential options:**
-- `-c` - Don't create file if it doesn't exist
-- `-t TIME` - Use specified time instead of now
-
-**System calls/APIs:**
-- `open()` with `O_CREAT`
-- `utimes()` or `utimensat()` for timestamp
-
-**Input/output:**
-- Input: File path(s)
-- Output: None (creates/updates files)
-
-**Error cases:**
-- Permission denied
-- Invalid path
-
-**Testing:**
+**Test 1.1: BNFC Installation**
 ```bash
-./touch newfile.txt            # creates empty file
-./touch existing.txt           # updates timestamp
-stat -c %Y file.txt            # check timestamp
+# Should output version info
+bnfc --version
+# Expected: BNFC version 2.9.x
 ```
 
----
-
-### **6. ls**
-**What it does:** List directory contents
-
-**Essential options:**
-- `-l` - Long format
-- `-a` - Show hidden files
-- `-h` - Human-readable sizes
-- `-R` - Recursive
-- `-t` - Sort by modification time
-
-**System calls/APIs:**
-- `opendir()`, `readdir()`, `closedir()`
-- `stat()`, `lstat()` for file info
-- `getpwuid()`, `getgrgid()` for user/group names
-
-**Input/output:**
-- Input: Directory path(s) or current dir
-- Output: File listing to stdout
-
-**Error cases:**
-- Directory doesn't exist
-- Permission denied
-- Not a directory
-
-**Testing:**
+**Test 1.2: Flex/Bison Installation**
 ```bash
-./ls                           # current directory
-./ls -la /tmp                  # long format, all files
-./ls -lh                       # human-readable sizes
-./ls nonexistent               # error
+flex --version && bison --version
+# Expected: Both tools report versions
 ```
 
----
-
-### **7. cp**
-**What it does:** Copy files and directories
-
-**Essential options:**
-- `-r` or `-R` - Copy directories recursively
-- `-f` - Force (overwrite without prompt)
-- `-p` - Preserve mode, ownership, timestamps
-
-**System calls/APIs:**
-- `open()`, `read()`, `write()`, `close()`
-- `stat()` to check source/dest
-- `opendir()`, `readdir()` for recursive
-- `chmod()`, `chown()` for -p
-
-**Input/output:**
-- Input: Source and destination paths
-- Output: None (creates copies)
-
-**Error cases:**
-- Source doesn't exist
-- Permission denied
-- Dest is directory but source isn't
-- Copying directory without -r
-
-**Testing:**
+**Test 1.3: Directory Structure**
 ```bash
-./cp source.txt dest.txt       # copy file
-./cp -r srcdir destdir         # recursive
-./cp file.txt /tmp/            # to directory
+ls -la bnfc_shell/ tests/cases/ tests/expected/
+# Expected: All directories exist
 ```
+
+**📊 Phase 1 Checklist:**
+- [ ] BNFC installed and version confirmed
+- [ ] Flex and Bison installed
+- [ ] Directory structure created
+- [ ] Can access teacher's provided files
+- [ ] All verification tests pass
 
 ---
 
-### **8. rm**
-**What it does:** Remove files or directories
+## PHASE 2: BNFC Calculator Learning
 
-**Essential options:**
-- `-r` or `-R` - Remove directories recursively
-- `-f` - Force (ignore nonexistent, no prompt)
-- `-i` - Interactive prompt
+**Goal:** Fully understand BNFC workflow with calculator example  
+**Time Estimate:** 2-3 hours  
+**Success Criteria:** Can modify calculator and see results
 
-**System calls/APIs:**
-- `unlink()` for files
-- `rmdir()` for directories
-- `opendir()`, `readdir()` for recursive
+### 2.1 Setup Calculator Example
 
-**Input/output:**
-- Input: File/directory path(s)
-- Output: None (removes files)
+Create `bnfc_shell/Calc.cf`:
 
-**Error cases:**
-- File doesn't exist (unless -f)
-- Permission denied
-- Directory not empty (without -r)
+```bnfc
+-- BNFC tutorial-inspired calculator (C backend only)
+-- Precedence via Exp/Term/Factor split
+comment "/*" "*/" ;
+comment "//" "\n" ;
 
-**Testing:**
+entrypoints Exp ;
+
+EAdd.  Exp   ::= Exp "+" Term ;
+ESub.  Exp   ::= Exp "-" Term ;
+ToExp. Exp   ::= Term ;
+
+EMul.  Term  ::= Term "*" Factor ;
+EDiv.  Term  ::= Term "/" Factor ;
+ToTerm. Term ::= Factor ;
+
+EInt.  Factor ::= Integer ;
+EVar.  Factor ::= Ident ;
+EPar.  Factor ::= "(" Exp ")" ;
+```
+
+### 2.2 Generate and Build
+
 ```bash
-./rm file.txt                  # remove file
-./rm -r directory/             # recursive
-./rm -f nonexistent            # no error
-./rm directory/                # error: is a directory
+cd bnfc_shell/
+
+# Generate all files
+bnfc --c Calc.cf
+
+# Examine generated files
+ls -la
+# You should see:
+# - Absyn.c, Absyn.h      (AST definitions)
+# - Lexer.c, Lexer.h      (Tokenizer)
+# - Parser.c, Parser.h    (Parser)
+# - Printer.c, Printer.h  (Pretty printer)
+# - Skeleton.c, Skeleton.h (Visitor template)
+# - Test.c                 (Test driver)
+# - Makefile              (Build rules)
+
+# Build
+make
+
+# Should create TestCalc executable
 ```
 
----
+### 2.3 Test Calculator (Understanding Phase)
 
-### **9. mv**
-**What it does:** Move or rename files
-
-**Essential options:**
-- `-f` - Force overwrite
-- `-i` - Interactive prompt
-- `-n` - No overwrite
-
-**System calls/APIs:**
-- `rename()` for same filesystem
-- `link()` + `unlink()` or copy+delete for cross-fs
-
-**Input/output:**
-- Input: Source and destination
-- Output: None (moves files)
-
-**Error cases:**
-- Source doesn't exist
-- Permission denied
-- Cross-filesystem move
-
-**Testing:**
 ```bash
-./mv old.txt new.txt           # rename
-./mv file.txt /tmp/            # move to directory
-./mv dir1 dir2                 # rename directory
+# Test 1: Simple expression
+echo "1 + 2" | ./TestCalc
+# Expected output:
+# Parse Successful!
+# [Abstract Syntax]
+# (EAdd (ToExp (ToTerm (EInt 1))) (ToTerm (EInt 2)))
+# [Linearized tree]
+# 1 + 2
+
+# Test 2: Precedence
+echo "1 + 2 * 3" | ./TestCalc
+# Expected: Shows that * binds before +
+
+# Test 3: Parentheses
+echo "(1 + 2) * 3" | ./TestCalc
+# Expected: Different AST structure than above
 ```
 
----
+### 2.4 Study Generated Files
 
-### **10. head**
-**What it does:** Output first N lines of files
-
-**Essential options:**
-- `-n NUM` - Output first NUM lines (default 10)
-- `-c NUM` - Output first NUM bytes
-
-**System calls/APIs:**
-- `open()`, `read()`, `close()`
-- `fgets()` for line reading
-
-**Input/output:**
-- Input: Files or stdin
-- Output: First N lines to stdout
-
-**Error cases:**
-- File doesn't exist
-- Permission denied
-
-**Testing:**
+**Study Checklist:**
 ```bash
-./head file.txt                # first 10 lines
-./head -n 5 file.txt           # first 5 lines
-./head -c 100 file.txt         # first 100 bytes
-cat file.txt | ./head          # from stdin
+# 1. Look at AST definitions
+cat Absyn.h | less
+# Understand: Exp, Term, Factor structs
+# Understand: kind enum (is_EAdd, is_EMul, etc.)
+
+# 2. Look at Parser interface
+cat Parser.h
+# Find: pExp(FILE *inp) - main parsing function
+# Find: psExp(const char *str) - parse from string
+
+# 3. Look at Skeleton template
+cat Skeleton.c
+# Understand: visitExp(), visitTerm(), visitFactor()
+# Understand: Switch on p->kind
+# Understand: Accessing children via p->u.eAdd_.exp_, etc.
+
+# 4. Look at Test driver
+cat Test.c
+# Understand: How pExp() is called
+# Understand: How showExp() and printExp() work
 ```
 
----
+### 2.5 Implement Calculator Evaluation
 
-### **11. tail**
-**What it does:** Output last N lines of files
-
-**Essential options:**
-- `-n NUM` - Output last NUM lines (default 10)
-- `-c NUM` - Output last NUM bytes
-- `-f` - Follow (output appended data)
-
-**System calls/APIs:**
-- `open()`, `read()`, `lseek()`, `close()`
-- For -f: loop with `read()` and `sleep()`
-
-**Input/output:**
-- Input: Files or stdin
-- Output: Last N lines to stdout
-
-**Error cases:**
-- File doesn't exist
-- Permission denied
-
-**Testing:**
-```bash
-./tail file.txt                # last 10 lines
-./tail -n 5 file.txt           # last 5 lines
-./tail -f logfile              # follow mode
-```
-
----
-
-### **12. wc**
-**What it does:** Count lines, words, and bytes
-
-**Essential options:**
-- `-l` - Count lines only
-- `-w` - Count words only
-- `-c` - Count bytes only
-- `-m` - Count characters
-
-**System calls/APIs:**
-- `open()`, `read()`, `close()`
-- Character classification from `ctype.h`
-
-**Input/output:**
-- Input: Files or stdin
-- Output: Counts to stdout
-
-**Error cases:**
-- File doesn't exist
-- Permission denied
-
-**Testing:**
-```bash
-./wc file.txt                  # lines words bytes file.txt
-./wc -l file.txt               # lines only
-echo "hello world" | ./wc -w   # 2
-```
-
----
-
-### **13. ln**
-**What it does:** Create hard or symbolic links
-
-**Essential options:**
-- `-s` - Create symbolic link
-- `-f` - Force (remove existing dest)
-
-**System calls/APIs:**
-- `link()` for hard links
-- `symlink()` for symbolic links
-- `unlink()` for -f
-
-**Input/output:**
-- Input: Target and link name
-- Output: None (creates link)
-
-**Error cases:**
-- Target doesn't exist (hard link)
-- Link already exists (without -f)
-- Cross-filesystem hard link
-
-**Testing:**
-```bash
-./ln file.txt hardlink         # hard link
-./ln -s file.txt symlink       # symbolic link
-ls -li file.txt hardlink       # same inode
-readlink symlink               # file.txt
-```
-
----
-
-### **14. grep**
-**What it does:** Search for patterns in files
-
-**Essential options:**
-- `-i` - Case insensitive
-- `-v` - Invert match (non-matching lines)
-- `-n` - Show line numbers
-- `-r` - Recursive directory search
-- `-E` - Extended regex
-
-**System calls/APIs:**
-- `open()`, `read()`, `close()`
-- `regcomp()`, `regexec()` from `regex.h`
-- `opendir()`, `readdir()` for -r
-
-**Input/output:**
-- Input: Pattern and files or stdin
-- Output: Matching lines to stdout
-
-**Error cases:**
-- File doesn't exist
-- Invalid regex pattern
-
-**Testing:**
-```bash
-./grep "pattern" file.txt      # matching lines
-./grep -i "HELLO" file.txt     # case insensitive
-./grep -n "error" log.txt      # with line numbers
-./grep -r "TODO" src/          # recursive
-```
-
----
-
-### **15. find**
-**What it does:** Search for files in directory hierarchy
-
-**Essential options:**
-- `-name PATTERN` - Match filename
-- `-type TYPE` - Match file type (f/d/l)
-- `-size N` - Match file size
-- `-mtime N` - Modified N days ago
-
-**System calls/APIs:**
-- `opendir()`, `readdir()`, `closedir()`
-- `stat()`, `lstat()` for file info
-- `fnmatch()` for pattern matching
-
-**Input/output:**
-- Input: Starting directory and search criteria
-- Output: Matching paths to stdout
-
-**Error cases:**
-- Starting directory doesn't exist
-- Permission denied on subdirectories
-
-**Testing:**
-```bash
-./find . -name "*.c"           # all C files
-./find /tmp -type d            # directories only
-./find . -size +1M             # files > 1MB
-```
-
----
-
-### **16. basename**
-**What it does:** Strip directory from pathname
-
-**Essential options:**
-- `SUFFIX` - Remove trailing suffix
-
-**System calls/APIs:**
-- String manipulation only
-- `basename()` from `libgen.h` (or implement)
-
-**Input/output:**
-- Input: Path string
-- Output: Filename to stdout
-
-**Error cases:**
-- None (always succeeds)
-
-**Testing:**
-```bash
-./basename /path/to/file.txt   # file.txt
-./basename /path/to/file.txt .txt  # file
-./basename /path/to/           # to
-```
-
----
-
-### **17. dirname**
-**What it does:** Extract directory from pathname
-
-**Essential options:**
-- None
-
-**System calls/APIs:**
-- String manipulation
-- `dirname()` from `libgen.h` (or implement)
-
-**Input/output:**
-- Input: Path string
-- Output: Directory path to stdout
-
-**Error cases:**
-- None (always succeeds)
-
-**Testing:**
-```bash
-./dirname /path/to/file.txt    # /path/to
-./dirname /path/to/            # /path
-./dirname file.txt             # .
-```
-
----
-
-### **18. chmod**
-**What it does:** Change file permissions
-
-**Essential options:**
-- `-R` - Recursive
-- Modes: octal (755) or symbolic (u+x)
-
-**System calls/APIs:**
-- `chmod()`
-- `stat()` for existing permissions
-- `opendir()`, `readdir()` for -R
-
-**Input/output:**
-- Input: Mode and file path(s)
-- Output: None (changes permissions)
-
-**Error cases:**
-- File doesn't exist
-- Permission denied
-- Invalid mode
-
-**Testing:**
-```bash
-./chmod 755 file.sh            # rwxr-xr-x
-./chmod u+x file.sh            # add execute
-./chmod -R 644 dir/            # recursive
-stat -c %a file.sh             # check perms
-```
-
----
-
-### **19. stat**
-**What it does:** Display file or filesystem status
-
-**Essential options:**
-- `-f` - Display filesystem status
-- `-L` - Follow symbolic links
-- `-t` - Terse format
-
-**System calls/APIs:**
-- `stat()`, `lstat()`
-- `statfs()` or `statvfs()` for -f
-
-**Input/output:**
-- Input: File path(s)
-- Output: File metadata to stdout
-
-**Error cases:**
-- File doesn't exist
-- Permission denied
-
-**Testing:**
-```bash
-./stat file.txt                # full info
-./stat -L symlink              # follow link
-./stat -f /                    # filesystem info
-```
-
----
-
-### **20. du**
-**What it does:** Estimate file space usage
-
-**Essential options:**
-- `-h` - Human-readable sizes
-- `-s` - Summary only (don't show subdirs)
-- `-a` - All files, not just directories
-
-**System calls/APIs:**
-- `opendir()`, `readdir()`, `closedir()`
-- `stat()`, `lstat()` for file sizes
-
-**Input/output:**
-- Input: File/directory path(s)
-- Output: Disk usage to stdout
-
-**Error cases:**
-- Path doesn't exist
-- Permission denied
-
-**Testing:**
-```bash
-./du /tmp                      # total with subdirs
-./du -sh /tmp                  # summary, human
-./du -ah /tmp                  # all files, human
-```
-
----
-
-### **21. df**
-**What it does:** Report filesystem disk space usage
-
-**Essential options:**
-- `-h` - Human-readable sizes
-- `-T` - Print filesystem type
-
-**System calls/APIs:**
-- `getmntent()` to read /etc/mtab or /proc/mounts
-- `statvfs()` for filesystem stats
-
-**Input/output:**
-- Input: Filesystem or directory (optional)
-- Output: Space usage table to stdout
-
-**Error cases:**
-- Invalid path
-- Cannot read mount table
-
-**Testing:**
-```bash
-./df                           # all filesystems
-./df -h                        # human-readable
-./df /tmp                      # specific fs
-```
-
----
-
-### **22. env**
-**What it does:** Display environment variables or run program with modified environment
-
-**Essential options:**
-- `-i` - Ignore inherited environment
-- `VAR=value` - Set variable
-
-**System calls/APIs:**
-- `environ` global variable
-- `getenv()`, `setenv()`, `unsetenv()`
-- `execvp()` for running programs
-
-**Input/output:**
-- Input: Optional variable assignments and command
-- Output: Environment variables or command output
-
-**Error cases:**
-- Invalid variable syntax
-- Command not found
-
-**Testing:**
-```bash
-./env                          # print all vars
-./env PATH=/bin ls             # run with modified PATH
-./env -i                       # empty environment
-```
-
----
-
-### **23. sleep**
-**What it does:** Delay for specified time
-
-**Essential options:**
-- Suffixes: s (seconds), m (minutes), h (hours)
-
-**System calls/APIs:**
-- `sleep()` or `nanosleep()`
-
-**Input/output:**
-- Input: Duration
-- Output: None (just delays)
-
-**Error cases:**
-- Invalid duration
-- Negative duration
-
-**Testing:**
-```bash
-time ./sleep 2                 # delay ~2 seconds
-./sleep 0.5                    # 500ms (if supported)
-./sleep -1                     # error
-```
-
----
-
-### **24. true**
-**What it does:** Return success exit status
-
-**Essential options:**
-- None
-
-**System calls/APIs:**
-- None
-
-**Input/output:**
-- Input: None
-- Output: None
-
-**Error cases:**
-- None (always succeeds)
-
-**Testing:**
-```bash
-./true && echo "success"       # success
-echo $?                        # 0
-```
-
----
-
-### **25. false**
-**What it does:** Return failure exit status
-
-**Essential options:**
-- None
-
-**System calls/APIs:**
-- None
-
-**Input/output:**
-- Input: None
-- Output: None
-
-**Error cases:**
-- None (always fails)
-
-**Testing:**
-```bash
-./false || echo "failed"       # failed
-echo $?                        # 1
-```
-
----
-
-## Shared Utility Functions (utils.c/utils.h)
-
-### Error Handling Functions
-
-#### `void error_msg(const char *msg)`
-Print error message to stderr
-
-**System calls:** `write()` or `fprintf()`
-
-#### `int perror_return(const char *msg, int code)`
-Print error with perror() and return error code
-
-**System calls:** `perror()`
-
-#### `void usage(const char *cmd, const char *msg)`
-Print usage message for command
-
-**System calls:** `printf()` or `write()`
-
----
-
-### String Utilities
-
-#### `int str_ends_with(const char *str, const char *suffix)`
-Check if string ends with suffix
-
-**Returns:** 1 if true, 0 if false
-
-**Testing:**
-```c
-assert(str_ends_with("file.txt", ".txt") == 1);
-assert(str_ends_with("file.txt", ".c") == 0);
-```
-
-#### `int str_starts_with(const char *str, const char *prefix)`
-Check if string starts with prefix
-
-**Returns:** 1 if true, 0 if false
-
-#### `char *trim_whitespace(char *str)`
-Remove leading and trailing whitespace (modifies in place)
-
-**Returns:** Pointer to trimmed string
-
-**Testing:**
-```c
-char buf[] = "  hello  ";
-assert(strcmp(trim_whitespace(buf), "hello") == 0);
-```
-
----
-
-### Path Manipulation
-
-#### `char *path_join(const char *base, const char *name)`
-Safely join two path components
-
-**Returns:** Newly allocated string (caller must free)
-
-**System calls:** `malloc()`
-
-**Testing:**
-```c
-char *p = path_join("/usr", "bin");
-assert(strcmp(p, "/usr/bin") == 0);
-free(p);
-```
-
-#### `char *get_basename(const char *path)`
-Extract filename from path (allocates new string)
-
-**Returns:** Newly allocated string
-
-**Testing:**
-```c
-char *b = get_basename("/path/to/file.txt");
-assert(strcmp(b, "file.txt") == 0);
-free(b);
-```
-
-#### `char *get_dirname(const char *path)`
-Extract directory from path (allocates new string)
-
-**Returns:** Newly allocated string
-
-**Testing:**
-```c
-char *d = get_dirname("/path/to/file.txt");
-assert(strcmp(d, "/path/to") == 0);
-free(d);
-```
-
----
-
-### File Utilities
-
-#### `int is_directory(const char *path)`
-Check if path is a directory
-
-**System calls:** `stat()`
-
-**Returns:** 1 if directory, 0 otherwise
-
-**Error handling:** Returns 0 on stat() failure
-
-#### `int is_regular_file(const char *path)`
-Check if path is a regular file
-
-**System calls:** `stat()`
-
-**Returns:** 1 if regular file, 0 otherwise
-
-#### `int file_exists(const char *path)`
-Check if file exists
-
-**System calls:** `access()` or `stat()`
-
-**Returns:** 1 if exists, 0 otherwise
-
-#### `ssize_t copy_file(const char *src, const char *dest)`
-Copy file from src to dest
-
-**System calls:** `open()`, `read()`, `write()`, `close()`
-
-**Returns:** Number of bytes copied, or -1 on error
-
-**Error handling:** Sets errno appropriately
-
-**Testing:**
-```c
-assert(copy_file("src.txt", "dest.txt") > 0);
-assert(file_exists("dest.txt"));
-```
-
----
-
-### Human-Readable Formatting
-
-#### `char *format_size(off_t size, char *buf, size_t bufsize)`
-Format file size in human-readable format (B, K, M, G, T)
-
-**Example:** 1536 � "1.5K"
-
-**Testing:**
-```c
-char buf[32];
-format_size(1536, buf, sizeof(buf));
-assert(strcmp(buf, "1.5K") == 0);
-```
-
-#### `char *format_time(time_t t, char *buf, size_t bufsize)`
-Format timestamp in readable format
-
-**Example:** "Jan 15 14:30" or "2024-01-15 14:30:00"
-
----
-
-### Option Parsing - UPDATED APPROACH ⚠️
-
-**Decision:** Use POSIX `getopt()` directly in each command instead of wrapper.
-
-**Previous approach:** A `parse_options()` wrapper was implemented but never adopted by commands.
-
-**Rationale for change:**
-- Standard approach every C programmer knows
-- Handles options with arguments naturally (via `optarg`)
-- More flexible for per-command needs
-- Simpler mental model (one approach, not two)
-- Less code to maintain (no wrapper infrastructure)
-- Commands were already using strcmp instead of wrapper
-
-**Standard Implementation Pattern:**
-
-Each command now uses this pattern:
+**Modify `Skeleton.c` to actually calculate:**
 
 ```c
-int cmd_name(int argc, char **argv)
+// At top of Skeleton.c, add:
+#include <stdio.h>
+
+// Global stack for evaluation
+static int eval_stack[1000];
+static int eval_sp = 0;
+
+void visitInteger(Integer i)
 {
-    int opt;
-    int some_flag = 0;
-    char *option_value = NULL;
+    eval_stack[eval_sp++] = i;
+    printf("  [DEBUG] Pushed %d, stack depth = %d\n", i, eval_sp);
+}
 
-    /* CRITICAL: Reset getopt for dispatcher */
-    optind = 1;
-
-    /* Optional: Check --help before getopt */
-    if (argc > 1 && strcmp(argv[1], "--help") == 0) {
-        usage_name();
-        return EXIT_OK;
+void visitExp(Exp p)
+{
+    switch(p->kind)
+    {
+    case is_EAdd:
+        printf("[DEBUG] Evaluating EAdd\n");
+        visitExp(p->u.eAdd_.exp_);
+        visitTerm(p->u.eAdd_.term_);
+        
+        int right = eval_stack[--eval_sp];
+        int left = eval_stack[--eval_sp];
+        int result = left + right;
+        eval_stack[eval_sp++] = result;
+        printf("  [DEBUG] %d + %d = %d\n", left, right, result);
+        break;
+        
+    case is_ESub:
+        printf("[DEBUG] Evaluating ESub\n");
+        visitExp(p->u.eSub_.exp_);
+        visitTerm(p->u.eSub_.term_);
+        
+        int right = eval_stack[--eval_sp];
+        int left = eval_stack[--eval_sp];
+        int result = left - right;
+        eval_stack[eval_sp++] = result;
+        printf("  [DEBUG] %d - %d = %d\n", left, right, result);
+        break;
+        
+    case is_ToExp:
+        visitTerm(p->u.toExp_.term_);
+        break;
     }
+}
 
-    /* Parse options */
-    while ((opt = getopt(argc, argv, "fn:h")) != -1) {
-        switch (opt) {
-            case 'f':
-                some_flag = 1;
-                break;
-            case 'n':
-                option_value = optarg;
-                /* Validate immediately! */
-                if (atoi(optarg) <= 0) {
-                    fprintf(stderr, "cmd: invalid value '%s'\n", optarg);
-                    return EXIT_ERROR;
-                }
-                break;
-            case 'h':
-                usage_name();
-                return EXIT_OK;
-            case '?':
-                /* getopt prints error */
-                usage_name();
-                return EXIT_ERROR;
-            default:
-                return EXIT_ERROR;
+// Similar for visitTerm and visitFactor...
+```
+
+**Modify `Test.c` to print result:**
+
+```c
+// After the existing code, add:
+if (parse_tree)
+{
+    printf("\nParse Successful!\n");
+    
+    // Call evaluation
+    visitExp(parse_tree);
+    
+    // Print result
+    printf("\n=== RESULT: %d ===\n", eval_stack[0]);
+    
+    // ... rest of existing code
+}
+```
+
+### 2.6 Rebuild and Test Evaluation
+
+```bash
+make clean
+make
+
+echo "1 + 2 * 3" | ./TestCalc
+# Should now show:
+# - Debug traces of evaluation
+# - Final result: 7
+```
+
+### ✅ Phase 2 Verification Tests
+
+**Test 2.1: Basic arithmetic**
+```bash
+echo "5 + 3" | ./TestCalc
+# Expected result: 8
+```
+
+**Test 2.2: Precedence**
+```bash
+echo "2 + 3 * 4" | ./TestCalc
+# Expected result: 14 (not 20)
+```
+
+**Test 2.3: Parentheses**
+```bash
+echo "(2 + 3) * 4" | ./TestCalc
+# Expected result: 20
+```
+
+**Test 2.4: Parse error**
+```bash
+echo "2 +" | ./TestCalc
+# Expected: Parse error message
+```
+
+**📊 Phase 2 Checklist:**
+- [ ] Calculator generates successfully
+- [ ] Can build TestCalc
+- [ ] Understands Absyn.h structure
+- [ ] Understands Skeleton.c visitor pattern
+- [ ] Implemented working evaluation
+- [ ] All verification tests pass
+- [ ] Can explain how token → parse → AST → evaluation works
+
+---
+
+## PHASE 3: Simple Grammar Integration
+
+**Goal:** Create minimal shell grammar and integrate with picobox  
+**Time Estimate:** 3-4 hours  
+**Success Criteria:** Can parse simple commands via BNFC
+
+### 3.1 Create Initial Shell Grammar
+
+Create `bnfc_shell/Shell.cf`:
+
+```bnfc
+-- Minimal shell grammar - Phase 3 (simple commands only)
+comment "/*" "*/" ;
+comment "//" "\n" ;
+
+-- Token for words (command names, arguments, filenames)
+token Word (letter (letter | digit | [._/\-])*) ;
+
+-- Entry point
+entry Input ;
+
+-- A shell input is a list of commands
+StartInput. Input ::= [Command] ;
+
+-- A command is just a word followed by arguments
+SimpleCmd. Command ::= Word [Word] ;
+
+-- Separators
+separator Command ";" ;
+separator Word " " ;
+```
+
+### 3.2 Generate Shell Parser
+
+```bash
+cd bnfc_shell/
+
+# Generate shell parser files
+bnfc --c Shell.cf
+
+# Build
+make
+
+# Test with simple input
+echo "cat file.txt" | ./TestShell
+# Expected: AST showing SimpleCmd with "cat" and ["file.txt"]
+```
+
+### 3.3 Create Shell Integration File
+
+Create `shell_bnfc.c`:
+
+```c
+/*
+ * shell_bnfc.c - BNFC-powered shell implementation
+ */
+
+#include "picobox.h"
+#include "../bnfc_shell/Parser.h"
+#include "../bnfc_shell/Absyn.h"
+#include "../bnfc_shell/Printer.h"
+#include <string.h>
+
+#define MAX_LINE_LENGTH 1024
+#define PROMPT "$ "
+
+/* External command table */
+extern const struct command commands[];
+
+/*
+ * Find command function by name
+ */
+static cmd_func_t find_command(const char *name)
+{
+    for (int i = 0; commands[i].name != NULL; i++) {
+        if (strcmp(commands[i].name, name) == 0) {
+            return commands[i].func;
         }
     }
+    return NULL;
+}
 
-    /* Non-option arguments start at argv[optind] */
-    for (int i = optind; i < argc; i++) {
-        /* Process argv[i] */
+/*
+ * Execute a simple command (Phase 3 - no fork/exec yet)
+ */
+static int execute_simple_command(Command *cmd)
+{
+    // For now, just print what we would execute
+    printf("[DEBUG] Would execute command\n");
+    
+    // TODO: Will implement fork/exec in Phase 4
+    
+    return EXIT_OK;
+}
+
+/*
+ * Execute parsed input
+ */
+static int execute_input(Input *input)
+{
+    // For Phase 3, just traverse and print
+    printf("[DEBUG] Executing input...\n");
+    
+    // TODO: Actual execution in later phases
+    
+    return EXIT_OK;
+}
+
+/*
+ * Main BNFC shell loop
+ */
+int shell_bnfc_main(void)
+{
+    char line[MAX_LINE_LENGTH];
+    Input *ast;
+
+    printf("PicoBox BNFC Shell v%s\n", PICOBOX_VERSION);
+    printf("Type 'exit' to quit.\n");
+
+    while (1) {
+        /* Print prompt */
+        printf("%s", PROMPT);
+        fflush(stdout);
+
+        /* Read line */
+        if (fgets(line, sizeof(line), stdin) == NULL) {
+            printf("\n");
+            break;
+        }
+
+        /* Remove newline */
+        size_t len = strlen(line);
+        if (len > 0 && line[len - 1] == '\n') {
+            line[len - 1] = '\0';
+        }
+
+        /* Skip empty lines */
+        if (line[0] == '\0') {
+            continue;
+        }
+
+        /* Check for exit */
+        if (strcmp(line, "exit") == 0) {
+            break;
+        }
+
+        /* Parse the line */
+        ast = psInput(line);
+        
+        if (ast == NULL) {
+            fprintf(stderr, "Parse error\n");
+            continue;
+        }
+
+        /* Show the AST (for debugging) */
+        printf("[AST] %s\n", showInput(ast));
+
+        /* Execute */
+        execute_input(ast);
+
+        /* Free AST */
+        free_Input(ast);
     }
 
     return EXIT_OK;
 }
 ```
 
-**Option String Format:**
-- `"abc"` - Boolean flags -a, -b, -c
-- `"n:"` - Option -n requires argument (available in `optarg`)
-- `"abn:h"` - Mix of flags and options with arguments
+### 3.4 Update Makefile
 
-**Key Rules:**
-1. Always reset `optind = 1` at start of command
-2. Always validate `optarg` immediately
-3. Handle `'?'` case for invalid options
-4. Use `argv[optind]` to access first non-option argument
+Add to your main `Makefile`:
 
-See `docs/agent.md` for complete guidelines and `docs/getopt_migration_plan.md` for migration details.
+```makefile
+# BNFC shell integration
+BNFC_DIR = bnfc_shell
+BNFC_SOURCES = $(BNFC_DIR)/Absyn.c $(BNFC_DIR)/Parser.c \
+               $(BNFC_DIR)/Lexer.c $(BNFC_DIR)/Printer.c
 
----
+SOURCES += shell_bnfc.c
 
-## Key System Calls & APIs Reference
+# Build BNFC files first
+.PHONY: bnfc
+bnfc:
+	cd $(BNFC_DIR) && bnfc --c Shell.cf && make
 
-### File I/O (Unbuffered)
-- `int open(const char *path, int flags, mode_t mode)`
-- `ssize_t read(int fd, void *buf, size_t count)`
-- `ssize_t write(int fd, const void *buf, size_t count)`
-- `int close(int fd)`
-- `off_t lseek(int fd, off_t offset, int whence)`
+picobox: bnfc $(OBJECTS)
+	$(CC) $(CFLAGS) -o $@ $(OBJECTS) $(BNFC_SOURCES)
+```
 
-### File I/O (Buffered)
-- `FILE *fopen(const char *path, const char *mode)`
-- `size_t fread(void *ptr, size_t size, size_t nmemb, FILE *stream)`
-- `size_t fwrite(const void *ptr, size_t size, size_t nmemb, FILE *stream)`
-- `char *fgets(char *s, int size, FILE *stream)`
-- `int fclose(FILE *stream)`
+### 3.5 Add Shell Mode Toggle
 
-### File Metadata
-- `int stat(const char *path, struct stat *buf)`
-- `int lstat(const char *path, struct stat *buf)` - Don't follow symlinks
-- `int fstat(int fd, struct stat *buf)`
+In `main.c`, add option to use BNFC shell:
 
-### Directory Operations
-- `DIR *opendir(const char *name)`
-- `struct dirent *readdir(DIR *dirp)`
-- `int closedir(DIR *dirp)`
-- `int mkdir(const char *path, mode_t mode)`
-- `int rmdir(const char *path)`
-
-### File Operations
-- `int unlink(const char *path)` - Delete file
-- `int rename(const char *old, const char *new)` - Rename/move
-- `int link(const char *old, const char *new)` - Create hard link
-- `int symlink(const char *target, const char *linkpath)` - Create symlink
-- `int chmod(const char *path, mode_t mode)` - Change permissions
-- `int chown(const char *path, uid_t owner, gid_t group)` - Change ownership
-
-### Time Functions
-- `int utimes(const char *filename, const struct timeval times[2])` - Set timestamps
-- `time_t time(time_t *tloc)` - Get current time
-- `struct tm *localtime(const time_t *timep)` - Convert to local time
-
-### Path Manipulation
-- `char *getcwd(char *buf, size_t size)` - Get current directory
-- `char *realpath(const char *path, char *resolved)` - Resolve to absolute path
-
-### Pattern Matching
-- `int fnmatch(const char *pattern, const char *string, int flags)` - Filename matching
-- `int regcomp(regex_t *preg, const char *regex, int cflags)` - Compile regex
-- `int regexec(const regex_t *preg, const char *string, ...)` - Execute regex
-
-### Process & Environment
-- `char *getenv(const char *name)` - Get environment variable
-- `int setenv(const char *name, const char *value, int overwrite)` - Set env var
-- `extern char **environ` - Environment array
-- `unsigned int sleep(unsigned int seconds)` - Sleep
-
-### User/Group Info
-- `struct passwd *getpwuid(uid_t uid)` - Get user info
-- `struct group *getgrgid(gid_t gid)` - Get group info
-
----
-
-## Implementation Guidelines
-
-### Memory Management Rules
-1. **Always free allocated memory** - Use valgrind to check
-2. **Close file descriptors** - Track all open() calls
-3. **Close directory streams** - Every opendir() needs closedir()
-4. **Free regex compiled patterns** - regfree() after regcomp()
-
-### Error Handling Pattern
 ```c
-int cmd_foo(int argc, char **argv)
-{
-    int ret = 0;
-    FILE *fp = NULL;
+// Add prototype
+int shell_bnfc_main(void);
 
-    fp = fopen(path, "r");
-    if (!fp) {
-        perror(path);
-        return 1;
+// In main(), where you check for shell mode:
+if (strcmp(program_name, "picobox") == 0) {
+    if (argc < 2) {
+        // Check environment variable for shell mode
+        char *shell_mode = getenv("PICOBOX_BNFC");
+        if (shell_mode && strcmp(shell_mode, "1") == 0) {
+            return shell_bnfc_main();  // BNFC shell
+        } else {
+            return shell_main();        // Old shell
+        }
     }
-
-    // ... do work ...
-
-cleanup:
-    if (fp) fclose(fp);
-    return ret;
+    // ... rest of code
 }
 ```
 
-### Help Text Format
+### ✅ Phase 3 Verification Tests
+
+**Test 3.1: Build system**
+```bash
+make clean
+make
+# Expected: Compiles successfully with BNFC integration
+```
+
+**Test 3.2: Parse simple command**
+```bash
+echo "cat" | PICOBOX_BNFC=1 ./picobox
+# Expected: Shows AST for SimpleCmd("cat", [])
+```
+
+**Test 3.3: Parse command with arguments**
+```bash
+echo "cat file.txt" | PICOBOX_BNFC=1 ./picobox
+# Expected: Shows AST for SimpleCmd("cat", ["file.txt"])
+```
+
+**Test 3.4: Parse multiple commands**
+```bash
+echo "ls ; pwd" | PICOBOX_BNFC=1 ./picobox
+# Expected: Shows AST with two commands
+```
+
+**Test 3.5: Parse error handling**
+```bash
+echo "cat |" | PICOBOX_BNFC=1 ./picobox
+# Expected: Parse error message (pipe not supported yet)
+```
+
+**📊 Phase 3 Checklist:**
+- [ ] Shell.cf grammar created
+- [ ] BNFC generates shell parser successfully
+- [ ] shell_bnfc.c integrates with picobox
+- [ ] Makefile builds everything correctly
+- [ ] Can toggle between old/new shell
+- [ ] All verification tests pass
+- [ ] AST structures are understood
+
+---
+
+## PHASE 4: Fork/Exec Implementation
+
+**Goal:** Replace in-process execution with proper fork/exec  
+**Time Estimate:** 4-5 hours  
+**Success Criteria:** Commands run in separate processes
+
+### 4.1 Understand Current vs. Target Model
+
+**Current (WRONG):**
 ```c
-static void usage_foo(void)
+// In execute_command()
+cmd_func = find_command("cat");
+cmd_func(argc, argv);  // Runs cat() in SAME PROCESS
+```
+
+**Target (CORRECT):**
+```c
+// Fork a child process
+pid_t pid = fork();
+if (pid == 0) {
+    // CHILD: execute command
+    execvp("cat", argv);
+    _exit(127);
+}
+// PARENT: wait for child
+waitpid(pid, &status, 0);
+```
+
+### 4.2 Implement Fork/Exec Helper
+
+Create `exec_helpers.c`:
+
+```c
+/*
+ * exec_helpers.c - Process execution helpers
+ */
+
+#include "picobox.h"
+#include <sys/wait.h>
+
+/*
+ * Execute command in child process
+ * Returns exit status of child, or -1 on fork error
+ */
+int exec_command_external(char **argv)
 {
-    fprintf(stderr,
-        "Usage: foo [OPTIONS] FILE...\n"
-        "Brief description of what foo does.\n"
-        "\n"
-        "Options:\n"
-        "  -a          description of -a\n"
-        "  -b          description of -b\n"
-        "  -h, --help  display this help and exit\n");
+    pid_t pid;
+    int status;
+    
+    if (!argv || !argv[0]) {
+        fprintf(stderr, "exec: null command\n");
+        return EXIT_ERROR;
+    }
+    
+    printf("[DEBUG] Forking to execute: %s\n", argv[0]);
+    
+    pid = fork();
+    
+    if (pid < 0) {
+        perror("fork");
+        return EXIT_ERROR;
+    }
+    
+    if (pid == 0) {
+        /* CHILD PROCESS */
+        printf("[DEBUG-CHILD] Executing %s\n", argv[0]);
+        
+        execvp(argv[0], argv);
+        
+        /* If execvp returns, it failed */
+        perror(argv[0]);
+        _exit(127);
+    }
+    
+    /* PARENT PROCESS */
+    printf("[DEBUG-PARENT] Waiting for child %d\n", pid);
+    
+    if (waitpid(pid, &status, 0) < 0) {
+        perror("waitpid");
+        return EXIT_ERROR;
+    }
+    
+    if (WIFEXITED(status)) {
+        int exit_code = WEXITSTATUS(status);
+        printf("[DEBUG-PARENT] Child exited with %d\n", exit_code);
+        return exit_code;
+    }
+    
+    if (WIFSIGNALED(status)) {
+        printf("[DEBUG-PARENT] Child killed by signal %d\n", WTERMSIG(status));
+        return 128 + WTERMSIG(status);
+    }
+    
+    return EXIT_ERROR;
+}
+
+/*
+ * Check if command is a built-in
+ */
+int is_builtin(const char *cmd)
+{
+    return (strcmp(cmd, "cd") == 0 ||
+            strcmp(cmd, "exit") == 0 ||
+            strcmp(cmd, "help") == 0);
+}
+
+/*
+ * Execute built-in command
+ */
+int exec_builtin(int argc, char **argv)
+{
+    if (strcmp(argv[0], "cd") == 0) {
+        // Call existing builtin_cd from shell.c
+        // For now, implement inline
+        if (argc < 2) {
+            fprintf(stderr, "cd: missing argument\n");
+            return EXIT_ERROR;
+        }
+        if (chdir(argv[1]) != 0) {
+            perror("cd");
+            return EXIT_ERROR;
+        }
+        return EXIT_OK;
+    }
+    
+    if (strcmp(argv[0], "exit") == 0) {
+        return -1;  // Signal to exit shell
+    }
+    
+    fprintf(stderr, "Unknown builtin: %s\n", argv[0]);
+    return EXIT_ERROR;
 }
 ```
 
-### Testing Checklist for Each Command
-- [ ] Normal operation with files
-- [ ] Reading from stdin when applicable
-- [ ] Each option flag works correctly
-- [ ] Option combinations work together
-- [ ] Error: file doesn't exist
-- [ ] Error: permission denied
-- [ ] Error: invalid option
-- [ ] Help text displays correctly
-- [ ] No memory leaks (valgrind)
-- [ ] Works with empty files
-- [ ] Works with large files (> 1MB)
-- [ ] Works with binary files (when applicable)
-- [ ] Symlink handling (when applicable)
+### 4.3 Update Shell BNFC to Use Fork/Exec
 
----
+Modify `shell_bnfc.c`:
 
-## Build System (Makefile)
+```c
+// Add include
+#include "exec_helpers.h"
 
-### Key Targets
-- `all` - Build everything
-- `clean` - Remove build artifacts
-- `test` - Run all tests
-- `install` - Install binary and create symlinks
-- `uninstall` - Remove installed files
-- `valgrind` - Run with memory leak detection
+/*
+ * Convert BNFC Word list to argv array
+ */
+static char **words_to_argv(Word *cmd_word, ListWord *arg_words, int *argc_out)
+{
+    // Count total words
+    int count = 1;  // Command itself
+    ListWord *w = arg_words;
+    while (w) {
+        count++;
+        w = w->listword_;
+    }
+    
+    // Allocate argv
+    char **argv = malloc((count + 1) * sizeof(char *));
+    if (!argv) {
+        return NULL;
+    }
+    
+    // Fill argv
+    argv[0] = strdup(cmd_word);
+    int i = 1;
+    w = arg_words;
+    while (w && w->word_) {
+        argv[i++] = strdup(w->word_);
+        w = w->listword_;
+    }
+    argv[i] = NULL;
+    
+    *argc_out = count;
+    return argv;
+}
 
-### Compilation Flags
-```makefile
-CC = gcc
-CFLAGS = -Wall -Wextra -Werror -std=c11 -O2
-LDFLAGS =
-INCLUDES = -Iinclude
+/*
+ * Free argv array
+ */
+static void free_argv(char **argv)
+{
+    if (!argv) return;
+    for (int i = 0; argv[i]; i++) {
+        free(argv[i]);
+    }
+    free(argv);
+}
+
+/*
+ * Execute a simple command using fork/exec
+ */
+static int execute_simple_command(Command *cmd)
+{
+    char **argv;
+    int argc;
+    int status;
+    
+    // Convert BNFC structures to argv
+    argv = words_to_argv(cmd->u.simplecmd_.word_,
+                         cmd->u.simplecmd_.listword_,
+                         &argc);
+    
+    if (!argv) {
+        fprintf(stderr, "Failed to build argv\n");
+        return EXIT_ERROR;
+    }
+    
+    printf("[DEBUG] Executing: %s", argv[0]);
+    for (int i = 1; i < argc; i++) {
+        printf(" %s", argv[i]);
+    }
+    printf("\n");
+    
+    // Check if builtin
+    if (is_builtin(argv[0])) {
+        status = exec_builtin(argc, argv);
+    } else {
+        // External command - fork/exec
+        status = exec_command_external(argv);
+    }
+    
+    free_argv(argv);
+    return status;
+}
 ```
 
-### Structure
-```makefile
-SRCS = src/main.c src/utils.c src/cmd_echo.c src/cmd_pwd.c ...
-OBJS = $(SRCS:.c=.o)
-TARGET = build/picobox
+### 4.4 Create Test Files
 
-$(TARGET): $(OBJS)
-    $(CC) $(LDFLAGS) -o $@ $^
+Create `tests/cases/04_fork_exec_basic.txt`:
+```bash
+echo "Hello World"
+```
 
-%.o: %.c
-    $(CC) $(CFLAGS) $(INCLUDES) -c -o $@ $<
+Create `tests/expected/04_fork_exec_basic.txt`:
+```
+Hello World
+```
+
+Create `tests/cases/04_fork_exec_pwd.txt`:
+```bash
+pwd
+```
+
+Create `tests/cases/04_fork_exec_multiple.txt`:
+```bash
+echo "First" ; echo "Second"
+```
+
+### 4.5 Create Test Runner
+
+Create `tests/run_tests.sh`:
+
+```bash
+#!/bin/bash
+
+PICOBOX="../picobox"
+CASES_DIR="cases"
+EXPECTED_DIR="expected"
+
+PASS=0
+FAIL=0
+
+export PICOBOX_BNFC=1
+
+for test_case in "$CASES_DIR"/*.txt; do
+    test_name=$(basename "$test_case" .txt)
+    expected="$EXPECTED_DIR/$test_name.txt"
+    
+    echo "Running test: $test_name"
+    
+    if [ ! -f "$expected" ]; then
+        echo "  ⚠️  No expected output file, skipping"
+        continue
+    fi
+    
+    # Run test
+    output=$(cat "$test_case" | $PICOBOX 2>&1)
+    expected_output=$(cat "$expected")
+    
+    if [ "$output" = "$expected_output" ]; then
+        echo "  ✅ PASS"
+        ((PASS++))
+    else
+        echo "  ❌ FAIL"
+        echo "  Expected: $expected_output"
+        echo "  Got:      $output"
+        ((FAIL++))
+    fi
+done
+
+echo ""
+echo "Results: $PASS passed, $FAIL failed"
+
+if [ $FAIL -eq 0 ]; then
+    exit 0
+else
+    exit 1
+fi
+```
+
+```bash
+chmod +x tests/run_tests.sh
+```
+
+### ✅ Phase 4 Verification Tests
+
+**Test 4.1: Fork echo command**
+```bash
+echo "echo Hello" | PICOBOX_BNFC=1 ./picobox
+# Expected: Prints "Hello" (from child process)
+# Expected: Debug messages show fork/exec happening
+```
+
+**Test 4.2: Fork with arguments**
+```bash
+echo "echo Hello World" | PICOBOX_BNFC=1 ./picobox
+# Expected: Prints "Hello World"
+```
+
+**Test 4.3: Multiple commands**
+```bash
+echo "echo First ; echo Second" | PICOBOX_BNFC=1 ./picobox
+# Expected: Prints both "First" and "Second"
+```
+
+**Test 4.4: Builtin cd still works**
+```bash
+echo "cd /tmp ; pwd" | PICOBOX_BNFC=1 ./picobox
+# Expected: pwd shows /tmp
+```
+
+**Test 4.5: Error handling - bad command**
+```bash
+echo "nonexistent_command" | PICOBOX_BNFC=1 ./picobox
+# Expected: Error message, shell continues
+```
+
+**Test 4.6: Run automated tests**
+```bash
+cd tests
+./run_tests.sh
+# Expected: All Phase 4 tests pass
+```
+
+**📊 Phase 4 Checklist:**
+- [ ] exec_helpers.c created and compiles
+- [ ] Fork/exec implemented correctly
+- [ ] Built-ins still work (cd, exit)
+- [ ] External commands work (echo, ls, cat)
+- [ ] Process isolation verified (errors don't crash shell)
+- [ ] All verification tests pass
+- [ ] Test suite created and passing
+
+---
+
+## PHASE 5: Pipes Implementation
+
+**Goal:** Support pipeline execution (cmd1 | cmd2 | cmd3)  
+**Time Estimate:** 5-6 hours  
+**Success Criteria:** Can pipe data between commands
+
+### 5.1 Update Grammar for Pipes
+
+Modify `Shell.cf`:
+
+```bnfc
+-- Shell grammar - Phase 5 (add pipes)
+comment "/*" "*/" ;
+comment "//" "\n" ;
+
+token Word (letter (letter | digit | [._/\-])*) ;
+
+entry Input ;
+
+StartInput. Input ::= [Command] ;
+
+-- Now commands can be pipelines
+CmdPipeline. Command ::= Pipeline ;
+
+-- Pipeline is one or more simple commands
+SingleCmd. Pipeline ::= SimpleCmd ;
+PipeCmd.   Pipeline ::= SimpleCmd "|" Pipeline ;
+
+-- Simple command is word + args
+Cmd. SimpleCmd ::= Word [Word] ;
+
+separator Command ";" ;
+separator Word " " ;
+```
+
+### 5.2 Regenerate Parser
+
+```bash
+cd bnfc_shell/
+bnfc --c Shell.cf
+make clean
+make
+```
+
+### 5.3 Implement Pipeline Execution
+
+Add to `exec_helpers.c`:
+
+```c
+/*
+ * Execute a pipeline of commands
+ * 
+ * Pipeline: cmd1 | cmd2 | cmd3
+ * 
+ * Creates pipes:
+ *   pipe0: cmd1 -> cmd2
+ *   pipe1: cmd2 -> cmd3
+ * 
+ * Wiring:
+ *   cmd1: stdout -> pipe0[write]
+ *   cmd2: stdin <- pipe0[read], stdout -> pipe1[write]
+ *   cmd3: stdin <- pipe1[read]
+ */
+int exec_pipeline(char ***cmds, int num_cmds)
+{
+    int i;
+    int num_pipes = num_cmds - 1;
+    int pipes[num_pipes][2];
+    pid_t pids[num_cmds];
+    int status;
+    int final_status = 0;
+    
+    printf("[DEBUG] Executing pipeline with %d commands\n", num_cmds);
+    
+    /* Create all pipes */
+    for (i = 0; i < num_pipes; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe");
+            return EXIT_ERROR;
+        }
+        printf("[DEBUG] Created pipe %d: [%d, %d]\n", 
+               i, pipes[i][0], pipes[i][1]);
+    }
+    
+    /* Fork and execute each command */
+    for (i = 0; i < num_cmds; i++) {
+        printf("[DEBUG] Forking command %d: %s\n", i, cmds[i][0]);
+        
+        pids[i] = fork();
+        
+        if (pids[i] < 0) {
+            perror("fork");
+            return EXIT_ERROR;
+        }
+        
+        if (pids[i] == 0) {
+            /* CHILD PROCESS */
+            
+            /* Wire input (from previous pipe) */
+            if (i > 0) {
+                printf("[DEBUG-CHILD-%d] Wiring stdin from pipe %d\n", 
+                       i, i-1);
+                dup2(pipes[i-1][0], STDIN_FILENO);
+            }
+            
+            /* Wire output (to next pipe) */
+            if (i < num_cmds - 1) {
+                printf("[DEBUG-CHILD-%d] Wiring stdout to pipe %d\n", 
+                       i, i);
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+            
+            /* Close ALL pipe file descriptors in child */
+            for (int j = 0; j < num_pipes; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            
+            /* Execute command */
+            printf("[DEBUG-CHILD-%d] Executing %s\n", i, cmds[i][0]);
+            execvp(cmds[i][0], cmds[i]);
+            
+            /* If execvp returns, it failed */
+            perror(cmds[i][0]);
+            _exit(127);
+        }
+    }
+    
+    /* PARENT: Close all pipes */
+    for (i = 0; i < num_pipes; i++) {
+        printf("[DEBUG-PARENT] Closing pipe %d\n", i);
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+    
+    /* Wait for all children */
+    for (i = 0; i < num_cmds; i++) {
+        printf("[DEBUG-PARENT] Waiting for child %d (pid %d)\n", 
+               i, pids[i]);
+        
+        if (waitpid(pids[i], &status, 0) < 0) {
+            perror("waitpid");
+            final_status = EXIT_ERROR;
+            continue;
+        }
+        
+        if (WIFEXITED(status)) {
+            int exit_code = WEXITSTATUS(status);
+            printf("[DEBUG-PARENT] Child %d exited with %d\n", 
+                   i, exit_code);
+            
+            /* Use last command's exit status */
+            if (i == num_cmds - 1) {
+                final_status = exit_code;
+            }
+        }
+    }
+    
+    return final_status;
+}
+```
+
+### 5.4 Update Shell BNFC for Pipelines
+
+Modify `shell_bnfc.c`:
+
+```c
+/*
+ * Count pipeline stages
+ */
+static int count_pipeline_stages(Pipeline *p)
+{
+    int count = 0;
+    while (p) {
+        count++;
+        if (p->kind == is_SingleCmd) {
+            break;
+        }
+        // PipeCmd has a continuation
+        p = p->u.pipecmd_.pipeline_;
+    }
+    return count;
+}
+
+/*
+ * Build array of commands from pipeline
+ */
+static char ***build_pipeline_cmds(Pipeline *p, int *num_cmds_out)
+{
+    int num_cmds = count_pipeline_stages(p);
+    char ***cmds = malloc(num_cmds * sizeof(char **));
+    
+    int idx = 0;
+    Pipeline *curr = p;
+    
+    while (curr) {
+        SimpleCmd *sc;
+        
+        if (curr->kind == is_SingleCmd) {
+            sc = curr->u.singlecmd_.simplecmd_;
+        } else {
+            sc = curr->u.pipecmd_.simplecmd_;
+        }
+        
+        // Convert SimpleCmd to argv
+        int argc;
+        cmds[idx] = words_to_argv(
+            sc->u.cmd_.word_,
+            sc->u.cmd_.listword_,
+            &argc
+        );
+        
+        idx++;
+        
+        if (curr->kind == is_SingleCmd) {
+            break;
+        }
+        
+        curr = curr->u.pipecmd_.pipeline_;
+    }
+    
+    *num_cmds_out = num_cmds;
+    return cmds;
+}
+
+/*
+ * Execute a command (which might be a pipeline)
+ */
+static int execute_command_node(Command *cmd)
+{
+    if (cmd->kind != is_CmdPipeline) {
+        fprintf(stderr, "Unknown command type\n");
+        return EXIT_ERROR;
+    }
+    
+    Pipeline *p = cmd->u.cmdpipeline_.pipeline_;
+    
+    // Check if single command or actual pipeline
+    if (p->kind == is_SingleCmd) {
+        // Single command - use simple exec
+        SimpleCmd *sc = p->u.singlecmd_.simplecmd_;
+        int argc;
+        char **argv = words_to_argv(
+            sc->u.cmd_.word_,
+            sc->u.cmd_.listword_,
+            &argc
+        );
+        
+        int status;
+        if (is_builtin(argv[0])) {
+            status = exec_builtin(argc, argv);
+        } else {
+            status = exec_command_external(argv);
+        }
+        
+        free_argv(argv);
+        return status;
+        
+    } else {
+        // Actual pipeline
+        int num_cmds;
+        char ***cmds = build_pipeline_cmds(p, &num_cmds);
+        
+        int status = exec_pipeline(cmds, num_cmds);
+        
+        // Free cmds
+        for (int i = 0; i < num_cmds; i++) {
+            free_argv(cmds[i]);
+        }
+        free(cmds);
+        
+        return status;
+    }
+}
+```
+
+### 5.5 Create Pipeline Test Cases
+
+Create `tests/cases/05_pipe_simple.txt`:
+```bash
+echo "hello world" | cat
+```
+
+Expected: `hello world`
+
+Create `tests/cases/05_pipe_grep.txt`:
+```bash
+echo -e "line1\nline2\nline3" | grep line2
+```
+
+Expected: `line2`
+
+Create `tests/cases/05_pipe_three.txt`:
+```bash
+echo "HELLO" | tr A-Z a-z | cat
+```
+
+Expected: `hello`
+
+Create `tests/cases/05_pipe_wc.txt`:
+```bash
+echo -e "a\nb\nc" | wc -l
+```
+
+Expected: `3`
+
+### ✅ Phase 5 Verification Tests
+
+**Test 5.1: Simple pipe**
+```bash
+echo 'echo "test" | cat' | PICOBOX_BNFC=1 ./picobox
+# Expected: "test"
+```
+
+**Test 5.2: Pipe with grep**
+```bash
+echo 'echo -e "foo\nbar\nbaz" | grep bar' | PICOBOX_BNFC=1 ./picobox
+# Expected: "bar"
+```
+
+**Test 5.3: Three-stage pipeline**
+```bash
+echo 'echo "HELLO" | tr A-Z a-z | cat' | PICOBOX_BNFC=1 ./picobox
+# Expected: "hello"
+```
+
+**Test 5.4: Pipeline with wc**
+```bash
+echo 'ls | wc -l' | PICOBOX_BNFC=1 ./picobox
+# Expected: Number of files in current directory
+```
+
+**Test 5.5: Multiple pipelines**
+```bash
+echo 'echo A | cat ; echo B | cat' | PICOBOX_BNFC=1 ./picobox
+# Expected: "A" then "B"
+```
+
+**Test 5.6: Automated test suite**
+```bash
+cd tests
+./run_tests.sh
+# Expected: All Phase 5 tests pass
+```
+
+**📊 Phase 5 Checklist:**
+- [ ] Grammar updated for pipes
+- [ ] Parser regenerated successfully
+- [ ] Pipeline execution implemented
+- [ ] Pipe file descriptors managed correctly
+- [ ] All children waited for properly
+- [ ] All verification tests pass
+- [ ] Test suite expanded and passing
+
+---
+
+## PHASE 6: Redirections Implementation
+
+**Goal:** Support I/O redirections (<, >, >>)  
+**Time Estimate:** 4-5 hours  
+**Success Criteria:** Can redirect input/output to files
+
+### 6.1 Update Grammar for Redirections
+
+Modify `Shell.cf`:
+
+```bnfc
+-- Shell grammar - Phase 6 (add redirections)
+comment "/*" "*/" ;
+comment "//" "\n" ;
+
+token Word (letter (letter | digit | [._/\-])*) ;
+
+entry Input ;
+
+StartInput. Input ::= [Command] ;
+
+-- Commands with optional redirections
+CmdRedir. Command ::= Pipeline [Redir] ;
+
+-- Redirections
+RedirIn.     Redir ::= "<" Word ;
+RedirOut:    Redir ::= ">" Word ;
+RedirAppend. Redir ::= ">>" Word ;
+
+-- Pipelines
+SingleCmd. Pipeline ::= SimpleCmd ;
+PipeCmd.   Pipeline ::= SimpleCmd "|" Pipeline ;
+
+-- Simple commands
+Cmd. SimpleCmd ::= Word [Word] ;
+
+separator Command ";" ;
+separator Redir "" ;
+separator Word " " ;
+```
+
+### 6.2 Regenerate Parser
+
+```bash
+cd bnfc_shell/
+bnfc --c Shell.cf
+make clean
+make
+```
+
+### 6.3 Implement Redirection Helpers
+
+Add to `exec_helpers.c`:
+
+```c
+/*
+ * Redirection structure (internal)
+ */
+typedef struct {
+    int type;           // 0=in, 1=out, 2=append
+    char *filename;
+} redir_t;
+
+/*
+ * Apply redirections in current process
+ * Call this BEFORE exec in child process
+ */
+int apply_redirections(redir_t *redirs, int num_redirs)
+{
+    for (int i = 0; i < num_redirs; i++) {
+        int fd;
+        
+        switch (redirs[i].type) {
+        case 0:  /* Input redirection < */
+            printf("[DEBUG] Redirecting stdin from %s\n", 
+                   redirs[i].filename);
+            fd = open(redirs[i].filename, O_RDONLY);
+            if (fd < 0) {
+                perror(redirs[i].filename);
+                return -1;
+            }
+            dup2(fd, STDIN_FILENO);
+            close(fd);
+            break;
+            
+        case 1:  /* Output redirection > */
+            printf("[DEBUG] Redirecting stdout to %s\n", 
+                   redirs[i].filename);
+            fd = open(redirs[i].filename, 
+                     O_WRONLY | O_CREAT | O_TRUNC, 
+                     0644);
+            if (fd < 0) {
+                perror(redirs[i].filename);
+                return -1;
+            }
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+            break;
+            
+        case 2:  /* Append redirection >> */
+            printf("[DEBUG] Appending stdout to %s\n", 
+                   redirs[i].filename);
+            fd = open(redirs[i].filename, 
+                     O_WRONLY | O_CREAT | O_APPEND, 
+                     0644);
+            if (fd < 0) {
+                perror(redirs[i].filename);
+                return -1;
+            }
+            dup2(fd, STDOUT_FILENO);
+            close(fd);
+            break;
+        }
+    }
+    
+    return 0;
+}
+
+/*
+ * Execute command with redirections
+ */
+int exec_command_with_redir(char **argv, redir_t *redirs, int num_redirs)
+{
+    pid_t pid;
+    int status;
+    
+    printf("[DEBUG] Executing with %d redirections: %s\n", 
+           num_redirs, argv[0]);
+    
+    pid = fork();
+    
+    if (pid < 0) {
+        perror("fork");
+        return EXIT_ERROR;
+    }
+    
+    if (pid == 0) {
+        /* CHILD */
+        
+        /* Apply redirections */
+        if (apply_redirections(redirs, num_redirs) < 0) {
+            _exit(EXIT_ERROR);
+        }
+        
+        /* Execute */
+        execvp(argv[0], argv);
+        perror(argv[0]);
+        _exit(127);
+    }
+    
+    /* PARENT */
+    if (waitpid(pid, &status, 0) < 0) {
+        perror("waitpid");
+        return EXIT_ERROR;
+    }
+    
+    if (WIFEXITED(status)) {
+        return WEXITSTATUS(status);
+    }
+    
+    return EXIT_ERROR;
+}
+
+/*
+ * Execute pipeline with final redirections
+ * Redirections apply to the LAST command in the pipeline
+ */
+int exec_pipeline_with_redir(char ***cmds, int num_cmds, 
+                              redir_t *redirs, int num_redirs)
+{
+    int i;
+    int num_pipes = num_cmds - 1;
+    int pipes[num_pipes][2];
+    pid_t pids[num_cmds];
+    int status;
+    int final_status = 0;
+    
+    /* Create pipes */
+    for (i = 0; i < num_pipes; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe");
+            return EXIT_ERROR;
+        }
+    }
+    
+    /* Fork each command */
+    for (i = 0; i < num_cmds; i++) {
+        pids[i] = fork();
+        
+        if (pids[i] < 0) {
+            perror("fork");
+            return EXIT_ERROR;
+        }
+        
+        if (pids[i] == 0) {
+            /* CHILD */
+            
+            /* Wire pipes */
+            if (i > 0) {
+                dup2(pipes[i-1][0], STDIN_FILENO);
+            }
+            if (i < num_cmds - 1) {
+                dup2(pipes[i][1], STDOUT_FILENO);
+            }
+            
+            /* Close all pipe FDs */
+            for (int j = 0; j < num_pipes; j++) {
+                close(pipes[j][0]);
+                close(pipes[j][1]);
+            }
+            
+            /* Apply redirections (only on last command) */
+            if (i == num_cmds - 1) {
+                if (apply_redirections(redirs, num_redirs) < 0) {
+                    _exit(EXIT_ERROR);
+                }
+            }
+            
+            /* Execute */
+            execvp(cmds[i][0], cmds[i]);
+            perror(cmds[i][0]);
+            _exit(127);
+        }
+    }
+    
+    /* PARENT: Close pipes and wait */
+    for (i = 0; i < num_pipes; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+    
+    for (i = 0; i < num_cmds; i++) {
+        if (waitpid(pids[i], &status, 0) < 0) {
+            perror("waitpid");
+            final_status = EXIT_ERROR;
+            continue;
+        }
+        
+        if (WIFEXITED(status) && i == num_cmds - 1) {
+            final_status = WEXITSTATUS(status);
+        }
+    }
+    
+    return final_status;
+}
+```
+
+### 6.4 Update Shell BNFC for Redirections
+
+Modify `shell_bnfc.c`:
+
+```c
+/*
+ * Convert BNFC redirections to internal format
+ */
+static redir_t *build_redirections(ListRedir *list, int *num_out)
+{
+    // Count redirections
+    int count = 0;
+    ListRedir *l = list;
+    while (l && l->redir_) {
+        count++;
+        l = l->listredir_;
+    }
+    
+    if (count == 0) {
+        *num_out = 0;
+        return NULL;
+    }
+    
+    // Allocate array
+    redir_t *redirs = malloc(count * sizeof(redir_t));
+    
+    // Fill array
+    int idx = 0;
+    l = list;
+    while (l && l->redir_) {
+        Redir *r = l->redir_;
+        
+        switch (r->kind) {
+        case is_RedirIn:
+            redirs[idx].type = 0;
+            redirs[idx].filename = strdup(r->u.redirin_.word_);
+            break;
+            
+        case is_RedirOut:
+            redirs[idx].type = 1;
+            redirs[idx].filename = strdup(r->u.redirout_.word_);
+            break;
+            
+        case is_RedirAppend:
+            redirs[idx].type = 2;
+            redirs[idx].filename = strdup(r->u.redirappend_.word_);
+            break;
+        }
+        
+        idx++;
+        l = l->listredir_;
+    }
+    
+    *num_out = count;
+    return redirs;
+}
+
+/*
+ * Execute command with redirections
+ */
+static int execute_command_node(Command *cmd)
+{
+    if (cmd->kind != is_CmdRedir) {
+        fprintf(stderr, "Unknown command type\n");
+        return EXIT_ERROR;
+    }
+    
+    Pipeline *p = cmd->u.cmdredir_.pipeline_;
+    ListRedir *rlist = cmd->u.cmdredir_.listredir_;
+    
+    // Build redirections
+    int num_redirs;
+    redir_t *redirs = build_redirections(rlist, &num_redirs);
+    
+    int status;
+    
+    if (p->kind == is_SingleCmd) {
+        // Single command
+        SimpleCmd *sc = p->u.singlecmd_.simplecmd_;
+        int argc;
+        char **argv = words_to_argv(
+            sc->u.cmd_.word_,
+            sc->u.cmd_.listword_,
+            &argc
+        );
+        
+        if (num_redirs > 0) {
+            status = exec_command_with_redir(argv, redirs, num_redirs);
+        } else {
+            if (is_builtin(argv[0])) {
+                status = exec_builtin(argc, argv);
+            } else {
+                status = exec_command_external(argv);
+            }
+        }
+        
+        free_argv(argv);
+        
+    } else {
+        // Pipeline
+        int num_cmds;
+        char ***cmds = build_pipeline_cmds(p, &num_cmds);
+        
+        if (num_redirs > 0) {
+            status = exec_pipeline_with_redir(cmds, num_cmds, 
+                                             redirs, num_redirs);
+        } else {
+            status = exec_pipeline(cmds, num_cmds);
+        }
+        
+        for (int i = 0; i < num_cmds; i++) {
+            free_argv(cmds[i]);
+        }
+        free(cmds);
+    }
+    
+    // Free redirections
+    if (redirs) {
+        for (int i = 0; i < num_redirs; i++) {
+            free(redirs[i].filename);
+        }
+        free(redirs);
+    }
+    
+    return status;
+}
+```
+
+### 6.5 Create Redirection Test Cases
+
+Create `tests/cases/06_redir_out.txt`:
+```bash
+echo "test output" > /tmp/test.txt
+cat /tmp/test.txt
+```
+
+Expected: `test output`
+
+Create `tests/cases/06_redir_in.txt`:
+```bash
+echo "input data" > /tmp/input.txt
+cat < /tmp/input.txt
+```
+
+Expected: `input data`
+
+Create `tests/cases/06_redir_append.txt`:
+```bash
+echo "line1" > /tmp/append.txt
+echo "line2" >> /tmp/append.txt
+cat /tmp/append.txt
+```
+
+Expected:
+```
+line1
+line2
+```
+
+Create `tests/cases/06_redir_pipe_out.txt`:
+```bash
+echo "HELLO" | tr A-Z a-z > /tmp/lower.txt
+cat /tmp/lower.txt
+```
+
+Expected: `hello`
+
+### ✅ Phase 6 Verification Tests
+
+**Test 6.1: Output redirection**
+```bash
+rm -f /tmp/test_out.txt
+echo 'echo "hello" > /tmp/test_out.txt' | PICOBOX_BNFC=1 ./picobox
+cat /tmp/test_out.txt
+# Expected: "hello"
+```
+
+**Test 6.2: Input redirection**
+```bash
+echo "test data" > /tmp/test_in.txt
+echo 'cat < /tmp/test_in.txt' | PICOBOX_BNFC=1 ./picobox
+# Expected: "test data"
+```
+
+**Test 6.3: Append redirection**
+```bash
+rm -f /tmp/test_append.txt
+echo 'echo "A" > /tmp/test_append.txt' | PICOBOX_BNFC=1 ./picobox
+echo 'echo "B" >> /tmp/test_append.txt' | PICOBOX_BNFC=1 ./picobox
+cat /tmp/test_append.txt
+# Expected: "A" then "B"
+```
+
+**Test 6.4: Pipeline with output redirection**
+```bash
+rm -f /tmp/test_pipe_out.txt
+echo 'echo "HELLO" | tr A-Z a-z > /tmp/test_pipe_out.txt' | PICOBOX_BNFC=1 ./picobox
+cat /tmp/test_pipe_out.txt
+# Expected: "hello"
+```
+
+**Test 6.5: Error handling - bad file**
+```bash
+echo 'cat < /nonexistent/file.txt' | PICOBOX_BNFC=1 ./picobox
+# Expected: Error message about file not found
+```
+
+**Test 6.6: Automated test suite**
+```bash
+cd tests
+./run_tests.sh
+# Expected: All Phase 6 tests pass
+```
+
+**📊 Phase 6 Checklist:**
+- [ ] Grammar updated for redirections
+- [ ] Parser regenerated successfully
+- [ ] Redirection logic implemented correctly
+- [ ] File descriptors managed properly
+- [ ] Works with both simple commands and pipelines
+- [ ] All verification tests pass
+- [ ] Test suite expanded and passing
+
+---
+
+## PHASE 7: Background Jobs
+
+**Goal:** Support background execution (cmd &)  
+**Time Estimate:** 3-4 hours  
+**Success Criteria:** Can run jobs in background
+
+### 7.1 Update Grammar for Background
+
+Modify `Shell.cf`:
+
+```bnfc
+-- Shell grammar - Phase 7 (add background jobs)
+comment "/*" "*/" ;
+comment "//" "\n" ;
+
+token Word (letter (letter | digit | [._/\-])*) ;
+
+entry Input ;
+
+StartInput. Input ::= [Job] ;
+
+-- Jobs can be foreground or background
+JobFG. Job ::= Command ;
+JobBG. Job ::= Command "&" ;
+
+-- Commands with redirections
+CmdRedir. Command ::= Pipeline [Redir] ;
+
+-- Redirections
+RedirIn.     Redir ::= "<" Word ;
+RedirOut.    Redir ::= ">" Word ;
+RedirAppend. Redir ::= ">>" Word ;
+
+-- Pipelines
+SingleCmd. Pipeline ::= SimpleCmd ;
+PipeCmd.   Pipeline ::= SimpleCmd "|" Pipeline ;
+
+-- Simple commands
+Cmd. SimpleCmd ::= Word [Word] ;
+
+separator Job ";" ;
+separator Redir "" ;
+separator Word " " ;
+```
+
+### 7.2 Implement Background Job Support
+
+Add to `exec_helpers.c`:
+
+```c
+#include <signal.h>
+
+/* Job tracking */
+typedef struct {
+    int job_num;
+    pid_t pid;
+    char *command;
+    int running;
+} job_t;
+
+#define MAX_JOBS 100
+static job_t jobs[MAX_JOBS];
+static int num_jobs = 0;
+static int next_job_num = 1;
+
+/*
+ * SIGCHLD handler - reaps background jobs
+ */
+static void sigchld_handler(int sig)
+{
+    int status;
+    pid_t pid;
+    
+    (void)sig;  // Unused
+    
+    while ((pid = waitpid(-1, &status, WNOHANG)) > 0) {
+        // Find the job
+        for (int i = 0; i < num_jobs; i++) {
+            if (jobs[i].pid == pid && jobs[i].running) {
+                jobs[i].running = 0;
+                
+                printf("\n[%d] Done    %s\n", 
+                       jobs[i].job_num, 
+                       jobs[i].command);
+                fflush(stdout);
+                break;
+            }
+        }
+    }
+}
+
+/*
+ * Initialize job control (call once at shell startup)
+ */
+void init_job_control(void)
+{
+    struct sigaction sa;
+    
+    sa.sa_handler = sigchld_handler;
+    sigemptyset(&sa.sa_mask);
+    sa.sa_flags = SA_RESTART | SA_NOCLDSTOP;
+    
+    if (sigaction(SIGCHLD, &sa, NULL) < 0) {
+        perror("sigaction");
+    }
+}
+
+/*
+ * Add a background job
+ */
+static void add_job(pid_t pid, const char *cmdline)
+{
+    if (num_jobs >= MAX_JOBS) {
+        fprintf(stderr, "Too many background jobs\n");
+        return;
+    }
+    
+    jobs[num_jobs].job_num = next_job_num++;
+    jobs[num_jobs].pid = pid;
+    jobs[num_jobs].command = strdup(cmdline);
+    jobs[num_jobs].running = 1;
+    
+    printf("[%d] %d\n", jobs[num_jobs].job_num, pid);
+    
+    num_jobs++;
+}
+
+/*
+ * List active jobs
+ */
+void list_jobs(void)
+{
+    for (int i = 0; i < num_jobs; i++) {
+        if (jobs[i].running) {
+            printf("[%d] Running    %s\n", 
+                   jobs[i].job_num, 
+                   jobs[i].command);
+        }
+    }
+}
+
+/*
+ * Execute command in background
+ * Returns immediately, doesn't wait for completion
+ */
+int exec_command_background(char **argv, const char *cmdline)
+{
+    pid_t pid;
+    
+    printf("[DEBUG] Starting background job: %s\n", argv[0]);
+    
+    pid = fork();
+    
+    if (pid < 0) {
+        perror("fork");
+        return EXIT_ERROR;
+    }
+    
+    if (pid == 0) {
+        /* CHILD */
+        
+        /* Ignore SIGINT in background jobs */
+        signal(SIGINT, SIG_IGN);
+        
+        /* Execute */
+        execvp(argv[0], argv);
+        perror(argv[0]);
+        _exit(127);
+    }
+    
+    /* PARENT - don't wait, just track */
+    add_job(pid, cmdline);
+    
+    return EXIT_OK;
+}
+
+/*
+ * Execute pipeline in background
+ */
+int exec_pipeline_background(char ***cmds, int num_cmds, const char *cmdline)
+{
+    int i;
+    int num_pipes = num_cmds - 1;
+    int pipes[num_pipes][2];
+    pid_t main_pid;
+    
+    /* Create pipes */
+    for (i = 0; i < num_pipes; i++) {
+        if (pipe(pipes[i]) < 0) {
+            perror("pipe");
+            return EXIT_ERROR;
+        }
+    }
+    
+    /* Fork main process for the pipeline */
+    main_pid = fork();
+    
+    if (main_pid < 0) {
+        perror("fork");
+        return EXIT_ERROR;
+    }
+    
+    if (main_pid == 0) {
+        /* CHILD - fork pipeline stages */
+        
+        for (i = 0; i < num_cmds; i++) {
+            pid_t pid = fork();
+            
+            if (pid == 0) {
+                /* Pipeline stage child */
+                
+                if (i > 0) {
+                    dup2(pipes[i-1][0], STDIN_FILENO);
+                }
+                if (i < num_cmds - 1) {
+                    dup2(pipes[i][1], STDOUT_FILENO);
+                }
+                
+                for (int j = 0; j < num_pipes; j++) {
+                    close(pipes[j][0]);
+                    close(pipes[j][1]);
+                }
+                
+                execvp(cmds[i][0], cmds[i]);
+                perror(cmds[i][0]);
+                _exit(127);
+            }
+        }
+        
+        /* Pipeline parent - close pipes and wait */
+        for (i = 0; i < num_pipes; i++) {
+            close(pipes[i][0]);
+            close(pipes[i][1]);
+        }
+        
+        for (i = 0; i < num_cmds; i++) {
+            wait(NULL);
+        }
+        
+        _exit(EXIT_OK);
+    }
+    
+    /* Main shell process - close pipes and track job */
+    for (i = 0; i < num_pipes; i++) {
+        close(pipes[i][0]);
+        close(pipes[i][1]);
+    }
+    
+    add_job(main_pid, cmdline);
+    
+    return EXIT_OK;
+}
+```
+
+### 7.3 Update Shell BNFC for Background Jobs
+
+Modify `shell_bnfc.c`:
+
+```c
+// Add at startup
+int shell_bnfc_main(void)
+{
+    // ... existing code ...
+    
+    /* Initialize job control */
+    init_job_control();
+    
+    // ... rest of shell loop ...
+}
+
+/*
+ * Execute a job (might be background)
+ */
+static int execute_job(Job *job, const char *cmdline)
+{
+    int background = 0;
+    Command *cmd;
+    
+    if (job->kind == is_JobBG) {
+        background = 1;
+        cmd = job->u.jobbg_.command_;
+    } else {
+        cmd = job->u.jobfg_.command_;
+    }
+    
+    // ... get pipeline and redirections as before ...
+    
+    int status;
+    
+    if (background) {
+        printf("[DEBUG] Running in background\n");
+        
+        if (is_pipeline) {
+            status = exec_pipeline_background(cmds, num_cmds, cmdline);
+        } else {
+            status = exec_command_background(argv, cmdline);
+        }
+    } else {
+        // Foreground execution as before
+        // ...
+    }
+    
+    return status;
+}
+```
+
+### 7.4 Add Built-in Jobs Command
+
+```c
+// In builtin handling
+if (strcmp(argv[0], "jobs") == 0) {
+    list_jobs();
+    return EXIT_OK;
+}
+```
+
+### 7.5 Create Background Job Test Cases
+
+Create `tests/cases/07_bg_simple.txt`:
+```bash
+sleep 2 &
+echo "Immediate"
+```
+
+Expected: Job number printed, then "Immediate" immediately
+
+Create `tests/cases/07_bg_multiple.txt`:
+```bash
+sleep 1 &
+sleep 1 &
+jobs
+```
+
+Expected: Two job numbers, then job list showing both running
+
+### ✅ Phase 7 Verification Tests
+
+**Test 7.1: Simple background job**
+```bash
+echo 'sleep 2 & ; echo "Done"' | PICOBOX_BNFC=1 ./picobox
+# Expected: "[1] <pid>" then "Done" immediately
+# Then after 2 seconds: "[1] Done    sleep 2"
+```
+
+**Test 7.2: Multiple background jobs**
+```bash
+echo 'sleep 3 & ; sleep 3 & ; jobs' | PICOBOX_BNFC=1 ./picobox
+# Expected: Two job numbers, then job list
+```
+
+**Test 7.3: Background pipeline**
+```bash
+echo 'echo "test" | cat & ; echo "Done"' | PICOBOX_BNFC=1 ./picobox
+# Expected: Job started, "Done" printed immediately
+```
+
+**Test 7.4: Foreground still works**
+```bash
+echo 'sleep 1 ; echo "After sleep"' | PICOBOX_BNFC=1 ./picobox
+# Expected: Waits 1 second, then prints "After sleep"
+```
+
+**Test 7.5: Jobs command**
+```bash
+echo 'sleep 10 & ; jobs' | PICOBOX_BNFC=1 ./picobox
+# Expected: Shows running job
+```
+
+**📊 Phase 7 Checklist:**
+- [ ] Grammar updated for background jobs
+- [ ] SIGCHLD handler implemented
+- [ ] Job tracking works correctly
+- [ ] Background jobs don't block shell
+- [ ] jobs command works
+- [ ] All verification tests pass
+
+---
+
+## PHASE 8: Integration & Polish
+
+**Goal:** Clean up, document, and finalize  
+**Time Estimate:** 2-3 hours  
+**Success Criteria:** Production-ready shell
+
+### 8.1 Remove Debug Output
+
+Go through all files and either remove or make conditional:
+
+```c
+// Change this:
+printf("[DEBUG] Forking...\n");
+
+// To this:
+#ifdef DEBUG_SHELL
+printf("[DEBUG] Forking...\n");
+#endif
+```
+
+### 8.2 Error Handling Audit
+
+Ensure all system calls check errors:
+
+```c
+// Check all:
+- fork()
+- pipe()
+- dup2()
+- open()
+- waitpid()
+- execvp()
+```
+
+### 8.3 Memory Leak Check
+
+```bash
+# Run with valgrind
+echo 'echo "test" ; exit' | valgrind --leak-check=full ./picobox
+# Expected: No memory leaks
+```
+
+### 8.4 Create Comprehensive Test Suite
+
+Create `tests/comprehensive.sh`:
+
+```bash
+#!/bin/bash
+
+echo "=== Comprehensive Shell Test Suite ==="
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+# Test 1: Simple command
+# Test 2: Pipes
+# Test 3: Redirections
+# Test 4: Background jobs
+# Test 5: Error handling
+# ... etc
+
+echo ""
+echo "Results: $TESTS_PASSED passed, $TESTS_FAILED failed"
+```
+
+### 8.5 Documentation
+
+Create `README_BNFC.md`:
+
+```markdown
+# PicoBox BNFC Shell
+
+## Features
+- ✅ Command execution with fork/exec
+- ✅ Pipelines (cmd1 | cmd2 | cmd3)
+- ✅ Redirections (<, >, >>)
+- ✅ Background jobs (cmd &)
+- ✅ Built-in commands (cd, exit, help, jobs)
+
+## Usage
+```bash
+# Enable BNFC shell
+export PICOBOX_BNFC=1
+./picobox
+
+# Run tests
+cd tests
+./run_tests.sh
+```
+
+## Architecture
+- Grammar: `bnfc_shell/Shell.cf`
+- Parser: Generated by BNFC
+- Execution: `shell_bnfc.c`, `exec_helpers.c`
+```
+
+### ✅ Phase 8 Verification
+
+**Final test checklist:**
+- [ ] All debug output removed or conditional
+- [ ] No memory leaks (valgrind clean)
+- [ ] All error paths tested
+- [ ] Comprehensive test suite passes
+- [ ] Documentation complete
+- [ ] Code reviewed and clean
+
+---
+
+## TESTING STRATEGY
+
+### Unit Testing (Per Phase)
+
+Each phase MUST pass its verification tests before proceeding.
+
+```bash
+# After each phase:
+1. Run phase-specific tests
+2. Verify expected output
+3. Check for errors
+4. Only proceed if ALL tests pass
+```
+
+### Integration Testing
+
+```bash
+# Create test/integration/
+# Tests that combine features:
+- Pipes + redirections
+- Background + pipes
+- Multiple commands with various features
+```
+
+### Regression Testing
+
+```bash
+# After each phase, run ALL previous tests
+# Ensure new features don't break old ones
+
+./tests/run_all_tests.sh
+```
+
+### Error Testing
+
+```bash
+# Specific error condition tests:
+- Bad command names
+- Missing files
+- Permission errors
+- Syntax errors
+- Resource exhaustion
+```
+
+### Test Organization
+
+```
+tests/
+├── cases/
+│   ├── 00_empty.txt
+│   ├── 01_simple_echo.txt
+│   ├── 02_simple_multiple.txt
+│   ├── 03_grammar_parse.txt
+│   ├── 04_fork_exec_basic.txt
+│   ├── 05_pipe_simple.txt
+│   ├── 06_redir_out.txt
+│   ├── 07_bg_simple.txt
+│   └── ...
+├── expected/
+│   ├── 00_empty.txt
+│   ├── 01_simple_echo.txt
+│   └── ...
+├── run_tests.sh
+├── integration/
+│   ├── pipe_redir.sh
+│   └── ...
+└── errors/
+    ├── bad_command.sh
+    └── ...
 ```
 
 ---
 
-## Progress Tracking
+## SUCCESS CRITERIA SUMMARY
 
-### Day 1 Checklist
-- [ ] Makefile created and working
-- [ ] main.c dispatcher implemented
-- [ ] utils.c with basic functions
-- [ ] Headers (picobox.h, utils.h)
-- [ ] Test framework skeleton
-- [ ] Can compile and run (even with stub commands)
+### Phase 1: Prerequisites ✓
+- [ ] BNFC installed
+- [ ] All tools verified
+- [ ] Directory structure ready
 
-### Day 2-3 Checklist
-- [ ] echo command complete
-- [ ] pwd command complete
-- [ ] cat command complete
-- [ ] mkdir command complete
-- [ ] touch command complete
-- [ ] All 5 commands have tests
-- [ ] All tests passing
+### Phase 2: Calculator Learning ✓
+- [ ] Understands BNFC workflow
+- [ ] Can modify and test calculator
+- [ ] Understands visitor pattern
 
-### Day 4-5 Checklist
-- [ ] ls command with -l, -a, -h, -R
-- [ ] cp command with -r, -p
-- [ ] rm command with -r, -f
-- [ ] mv command complete
-- [ ] Integration tests for file operations
-- [ ] 9 commands total
+### Phase 3: Grammar Integration ✓
+- [ ] Simple grammar works
+- [ ] Parser generates successfully
+- [ ] Can parse basic commands
 
-### Day 6-7 Checklist
-- [ ] head command with -n, -c
-- [ ] tail command with -n, -c
-- [ ] wc command with -l, -w, -c
-- [ ] ln command with -s
-- [ ] 13 commands complete
-- [ ] Comprehensive test suite
+### Phase 4: Fork/Exec ✓
+- [ ] Commands run in separate processes
+- [ ] Built-ins still work
+- [ ] Error handling robust
 
-### Day 8-9 Checklist
-- [ ] grep with regex support
-- [ ] find with -name, -type
-- [ ] basename command
-- [ ] dirname command
-- [ ] 17 commands complete
+### Phase 5: Pipes ✓
+- [ ] Can pipe between 2+ commands
+- [ ] File descriptors managed correctly
+- [ ] All children waited for
 
-### Day 10-11 Checklist
-- [ ] chmod command
-- [ ] stat command
-- [ ] du command
-- [ ] df command (if time permits)
-- [ ] 21 commands complete
+### Phase 6: Redirections ✓
+- [ ] Input/output redirection works
+- [ ] Append mode works
+- [ ] Works with pipes
 
-### Day 12-13 Checklist
-- [ ] env command
-- [ ] sleep command
-- [ ] true command
-- [ ] false command
-- [ ] 25+ commands complete
-- [ ] All bonus commands implemented
+### Phase 7: Background Jobs ✓
+- [ ] Background execution works
+- [ ] SIGCHLD handling correct
+- [ ] Job tracking works
 
-### Day 14 Checklist
-- [ ] All memory leaks fixed
-- [ ] All tests passing
-- [ ] Symlinks created
-- [ ] Installation script
-- [ ] User documentation
-- [ ] README.md complete
-- [ ] Final validation
+### Phase 8: Polish ✓
+- [ ] No memory leaks
+- [ ] Clean code
+- [ ] Full documentation
 
 ---
 
-## Success Metrics
+## CRITICAL REMINDERS
 
-### Code Quality
-- **Zero memory leaks** - Valgrind clean
-- **All warnings resolved** - Compile with -Werror
-- **Test coverage > 90%** - Every command has tests
-- **POSIX compliance** - Matches standard behavior
+1. **TEST AFTER EVERY CHANGE**
+   - Don't write 100 lines then test
+   - Write 10 lines, test, repeat
 
-### Functionality
-- **All 22+ commands working** - Basic functionality complete
-- **Essential options implemented** - Per spec above
-- **Error handling robust** - Handles all error cases
-- **Help text complete** - Every command has -h
+2. **ONE FEATURE AT A TIME**
+   - Don't mix phases
+   - Complete verification before moving on
 
-### User Experience
-- **Single binary** - Symlink dispatch works
-- **Fast execution** - No unnecessary overhead
-- **Clear error messages** - User knows what went wrong
-- **Documentation complete** - README, man pages (optional)
+3. **SAVE WORKING STATES**
+   - Git commit after each passing phase
+   - Tag versions: v1-prereq, v2-calc, etc.
 
----
+4. **DEBUG THOROUGHLY**
+   - Use printf debugging
+   - Check all error paths
+   - Verify with different inputs
 
-## Optional Enhancements (If Time Permits)
-
-### Additional Commands
-- `cut` - Extract columns
-- `sort` - Sort lines
-- `uniq` - Remove duplicates
-- `tee` - Read from stdin and write to file and stdout
-- `seq` - Generate sequences of numbers
-- `yes` - Repeatedly output a string
-- `whoami` - Print current user
-- `groups` - Print group memberships
-- `id` - Print user/group IDs
-- `date` - Display current date/time
-
-### Advanced Features
-- Color output for ls
-- Follow mode for tail (-f)
-- Extended regex for grep (-E, -P)
-- Parallel execution for find
-- Progress indicators for long operations
-- Configuration file support
+5. **ASK FOR HELP**
+   - If stuck for >30 minutes on same issue
+   - Check professor's example files
+   - Use AI agent with specific questions
 
 ---
 
-## Resources & References
+## ESTIMATED TIMELINE
 
-### Documentation
-- **POSIX Standard:** https://pubs.opengroup.org/onlinepubs/9699919799/
-- **Linux man pages:** man 2 (syscalls), man 3 (library)
-- **GNU Coreutils source:** For reference implementation
+- **Week 1:** Phases 1-3 (Setup + Grammar)
+- **Week 2:** Phases 4-5 (Exec + Pipes)
+- **Week 3:** Phases 6-7 (Redir + Background)
+- **Week 4:** Phase 8 (Polish + Documentation)
 
-### Testing
-- **Valgrind:** Memory leak detection
-- **ShellCheck:** Shell script validation (for test scripts)
-- **AFL:** Fuzzing (advanced)
-
-### Build Tools
-- **Make:** GNU Make documentation
-- **GCC:** Compiler flags and options
-- **GDB:** Debugging
+**Total:** ~4 weeks at 10-15 hours/week
 
 ---
 
-## Notes
+## END OF PLAN
 
-This plan prioritizes:
-1. **Working code at each step** - Never leave broken code
-2. **Testing from day 1** - Catch issues early
-3. **Simple to complex** - Build foundation first
-4. **File operations first** - Most useful commands
-5. **Incremental delivery** - Each day adds value
-
-The goal is a production-quality implementation that demonstrates mastery of:
-- C programming
-- POSIX system calls
-- Unix command-line tools
-- Software engineering practices
-
-Let's build something excellent! =�
+This plan provides a complete roadmap from current state to fully functional BNFC-powered shell with pipes, redirections, and background jobs. Follow it incrementally, test continuously, and you WILL succeed! 🚀

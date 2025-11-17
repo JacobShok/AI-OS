@@ -1,0 +1,24 @@
+-- Minimal shell grammar - Phase 3 (simple commands only)
+-- This grammar supports: command_name arg1 arg2 ; command2 arg1
+
+-- Comments
+comment "/*" "*/" ;
+comment "//" "\n" ;
+comment "#" "\n" ;
+
+-- Token for words (command names, arguments, filenames)
+-- Matches: letters, digits, underscore, dot, slash, hyphen
+token Word (letter (letter | digit | '_' | '.' | '/' | '-')*) ;
+
+-- Entry point
+entrypoints Input ;
+
+-- A shell input is a list of commands
+StartInput. Input ::= [Command] ;
+
+-- A command is just a word followed by arguments
+SimpleCmd. Command ::= Word [Word] ;
+
+-- Separators
+separator Command ";" ;
+separator Word "" ;

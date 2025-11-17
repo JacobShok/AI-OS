@@ -114,7 +114,13 @@ int main(int argc, char **argv)
         /* Called as "picobox <command>" */
         if (argc < 2) {
             /* No command specified - enter interactive shell mode */
-            return shell_main();
+            /* Check environment variable to select shell implementation */
+            char *use_bnfc = getenv("PICOBOX_BNFC");
+            if (use_bnfc && strcmp(use_bnfc, "1") == 0) {
+                return shell_bnfc_main();  /* BNFC-powered shell */
+            } else {
+                return shell_main();        /* Original shell */
+            }
         }
 
         command_name = argv[1];

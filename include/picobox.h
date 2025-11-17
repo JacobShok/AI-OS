@@ -67,5 +67,6 @@ int cmd_false(int argc, char **argv);
 
 /* Shell mode */
 int shell_main(void);
+int shell_bnfc_main(void);
 
 #endif /* PICOBOX_H */
