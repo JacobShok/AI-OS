@@ -65,6 +65,12 @@ int cmd_sleep(int argc, char **argv);
 int cmd_true(int argc, char **argv);
 int cmd_false(int argc, char **argv);
 
+/* Package manager */
+int cmd_pkg(int argc, char **argv);
+
+/* AI assistant */
+int cmd_ai(int argc, char **argv);
+
 /* Shell mode */
 int shell_main(void);
 int shell_bnfc_main(void);

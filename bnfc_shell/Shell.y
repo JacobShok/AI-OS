@@ -56,6 +56,19 @@ ListCommand reverseListCommand(ListCommand l)
   }
   return prev;
 }
+ListSimpleCommand reverseListSimpleCommand(ListSimpleCommand l)
+{
+  ListSimpleCommand prev = 0;
+  ListSimpleCommand tmp = 0;
+  while (l)
+  {
+    tmp = l->listsimplecommand_;
+    l->listsimplecommand_ = prev;
+    prev = l;
+    l = tmp;
+  }
+  return prev;
+}
 ListWord reverseListWord(ListWord l)
 {
   ListWord prev = 0;
@@ -64,6 +77,19 @@ ListWord reverseListWord(ListWord l)
   {
     tmp = l->listword_;
     l->listword_ = prev;
+    prev = l;
+    l = tmp;
+  }
+  return prev;
+}
+ListRedirection reverseListRedirection(ListRedirection l)
+{
+  ListRedirection prev = 0;
+  ListRedirection tmp = 0;
+  while (l)
+  {
+    tmp = l->listredirection_;
+    l->listredirection_ = prev;
     prev = l;
     l = tmp;
   }
@@ -81,8 +107,13 @@ ListWord reverseListWord(ListWord l)
   char*  _string;
   Input input_;
   Command command_;
+  Pipeline pipeline_;
+  SimpleCommand simplecommand_;
+  Redirection redirection_;
   ListCommand listcommand_;
+  ListSimpleCommand listsimplecommand_;
   ListWord listword_;
+  ListRedirection listredirection_;
 }
 
 %{
@@ -99,12 +130,22 @@ extern int yylex(YYSTYPE *lvalp, YYLTYPE *llocp, yyscan_t scanner);
 
 %token          _ERROR_
 %token          _SEMI    /* ; */
+%token          _LT      /* < */
+%token          _GT      /* > */
+%token          _DGT     /* >> */
+%token          _KW_AI   /* AI */
+%token          _BAR     /* | */
 %token<_string> T_Word   /* Word */
 
 %type <input_> Input
 %type <command_> Command
+%type <pipeline_> Pipeline
+%type <simplecommand_> SimpleCommand
+%type <redirection_> Redirection
 %type <listcommand_> ListCommand
+%type <listsimplecommand_> ListSimpleCommand
 %type <listword_> ListWord
+%type <listredirection_> ListRedirection
 
 %start Input
 
@@ -112,14 +153,31 @@ extern int yylex(YYSTYPE *lvalp, YYLTYPE *llocp, yyscan_t scanner);
 
 Input : ListCommand { $$ = make_StartInput($1); result->input_ = $$; }
 ;
-Command : T_Word ListWord { $$ = make_SimpleCmd($1, $2); }
+Command : SimpleCommand { $$ = make_SimpleCmd($1); }
+  | Pipeline { $$ = make_PipeCmd($1); }
+  | _KW_AI ListWord { $$ = make_AICmd($2); }
+;
+Pipeline : ListSimpleCommand { $$ = make_PipeLine($1); }
+;
+SimpleCommand : T_Word ListWord ListRedirection { $$ = make_Cmd($1, $2, reverseListRedirection($3)); }
+;
+Redirection : _LT T_Word { $$ = make_RedirIn($2); }
+  | _GT T_Word { $$ = make_RedirOut($2); }
+  | _DGT T_Word { $$ = make_RedirAppend($2); }
 ;
 ListCommand : /* empty */ { $$ = 0; }
   | Command { $$ = make_ListCommand($1, 0); }
   | Command _SEMI ListCommand { $$ = make_ListCommand($1, $3); }
 ;
+ListSimpleCommand : /* empty */ { $$ = 0; }
+  | SimpleCommand { $$ = make_ListSimpleCommand($1, 0); }
+  | SimpleCommand _BAR ListSimpleCommand { $$ = make_ListSimpleCommand($1, $3); }
+;
 ListWord : /* empty */ { $$ = 0; }
   | T_Word ListWord { $$ = make_ListWord($1, $2); }
+;
+ListRedirection : /* empty */ { $$ = 0; }
+  | ListRedirection Redirection { $$ = make_ListRedirection($2, $1); }
 ;
 
 %%

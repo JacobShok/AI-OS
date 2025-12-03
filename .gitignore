@@ -1,30 +1,125 @@
-# Build artifacts
+# ============================================
+#  PicoBox Shell - Git Ignore
+#  Keep: Refactored code, BNFC files, docs
+#  Ignore: Build artifacts, old code, junk
+# ============================================
+
+# ============================================
+# Build Artifacts
+# ============================================
 build/
 *.o
+*.out
 *.a
 *.so
 *.dylib
+*.dSYM/
 
-# Executables
-mycommand
-picobox
+# ============================================
+# Old/Legacy Code (NOT REFACTORED)
+# These are in src/ root but NOT in src/commands/
+# ============================================
+src/cmd_basename.c
+src/cmd_cat.c
+src/cmd_chmod.c
+src/cmd_cp.c
+src/cmd_df.c
+src/cmd_dirname.c
+src/cmd_du.c
+src/cmd_echo.c
+src/cmd_env.c
+src/cmd_false.c
+src/cmd_find.c
+src/cmd_grep.c
+src/cmd_head.c
+src/cmd_ln.c
+src/cmd_ls.c
+src/cmd_mkdir.c
+src/cmd_mv.c
+src/cmd_pwd.c
+src/cmd_rm.c
+src/cmd_sleep.c
+src/cmd_stat.c
+src/cmd_tail.c
+src/cmd_touch.c
+src/cmd_true.c
+src/cmd_wc.c
 
-# Editor files
+# Old AI command (not using cmd_spec pattern)
+src/cmd_ai.c
+
+# ============================================
+# Test/Temp Files
+# ============================================
+test.txt
+test1.txt
+test1.tt
+test_argtable
+test_registry
+test_argtable.c
+test_registry.c
+*.tmp
+*.log
 *.swp
 *.swo
 *~
-.vscode/
-.idea/
 
-# OS files
+# Test scripts
+test_shell.sh
+tests/
+demo_refactored.sh
+
+# ============================================
+# macOS
+# ============================================
 .DS_Store
+.AppleDouble
+.LSOverride
+._*
 Thumbs.db
 
-# Debug files
-*.dSYM/
-core
-vgcore.*
+# ============================================
+# Editors
+# ============================================
+.vscode/
+.idea/
+*.code-workspace
 
-# Test artifacts
-*.log
-*.tmp
+# ============================================
+# Node/NPM
+# ============================================
+node_modules/
+package-lock.json
+package.json
+npm-debug.log*
+
+# ============================================
+# BNFC Generated Artifacts (will regenerate)
+# ============================================
+bnfc_shell/*.o
+bnfc_shell/TestShell
+bnfc_shell/Makefile.bak
+bnfc_shell/*.bak
+
+# ============================================
+# Backup Files
+# ============================================
+*.bak
+*.backup
+\#*\#
+
+# ============================================
+# Symlinks (will recreate)
+# ============================================
+mycommand
+
+# ============================================
+# Claude/AI Assistant
+# ============================================
+.claude/
+
+# ============================================
+# Debug Files (core dumps)
+# ============================================
+/core
+vgcore.*

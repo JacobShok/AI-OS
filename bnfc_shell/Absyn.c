@@ -23,7 +23,7 @@ Input make_StartInput(ListCommand p1)
 
 /********************   SimpleCmd    ********************/
 
-Command make_SimpleCmd(Word p1, ListWord p2)
+Command make_SimpleCmd(SimpleCommand p1)
 {
     Command tmp = (Command) malloc(sizeof(*tmp));
     if (!tmp)
@@ -32,8 +32,114 @@ Command make_SimpleCmd(Word p1, ListWord p2)
         exit(1);
     }
     tmp->kind = is_SimpleCmd;
-    tmp->u.simpleCmd_.word_ = p1;
-    tmp->u.simpleCmd_.listword_ = p2;
+    tmp->u.simpleCmd_.simplecommand_ = p1;
+    return tmp;
+}
+
+/********************   PipeCmd    ********************/
+
+Command make_PipeCmd(Pipeline p1)
+{
+    Command tmp = (Command) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating PipeCmd!\n");
+        exit(1);
+    }
+    tmp->kind = is_PipeCmd;
+    tmp->u.pipeCmd_.pipeline_ = p1;
+    return tmp;
+}
+
+/********************   AICmd    ********************/
+
+Command make_AICmd(ListWord p1)
+{
+    Command tmp = (Command) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating AICmd!\n");
+        exit(1);
+    }
+    tmp->kind = is_AICmd;
+    tmp->u.aICmd_.listword_ = p1;
+    return tmp;
+}
+
+/********************   PipeLine    ********************/
+
+Pipeline make_PipeLine(ListSimpleCommand p1)
+{
+    Pipeline tmp = (Pipeline) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating PipeLine!\n");
+        exit(1);
+    }
+    tmp->kind = is_PipeLine;
+    tmp->u.pipeLine_.listsimplecommand_ = p1;
+    return tmp;
+}
+
+/********************   Cmd    ********************/
+
+SimpleCommand make_Cmd(Word p1, ListWord p2, ListRedirection p3)
+{
+    SimpleCommand tmp = (SimpleCommand) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating Cmd!\n");
+        exit(1);
+    }
+    tmp->kind = is_Cmd;
+    tmp->u.cmd_.word_ = p1;
+    tmp->u.cmd_.listword_ = p2;
+    tmp->u.cmd_.listredirection_ = p3;
+    return tmp;
+}
+
+/********************   RedirIn    ********************/
+
+Redirection make_RedirIn(Word p1)
+{
+    Redirection tmp = (Redirection) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating RedirIn!\n");
+        exit(1);
+    }
+    tmp->kind = is_RedirIn;
+    tmp->u.redirIn_.word_ = p1;
+    return tmp;
+}
+
+/********************   RedirOut    ********************/
+
+Redirection make_RedirOut(Word p1)
+{
+    Redirection tmp = (Redirection) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating RedirOut!\n");
+        exit(1);
+    }
+    tmp->kind = is_RedirOut;
+    tmp->u.redirOut_.word_ = p1;
+    return tmp;
+}
+
+/********************   RedirAppend    ********************/
+
+Redirection make_RedirAppend(Word p1)
+{
+    Redirection tmp = (Redirection) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating RedirAppend!\n");
+        exit(1);
+    }
+    tmp->kind = is_RedirAppend;
+    tmp->u.redirAppend_.word_ = p1;
     return tmp;
 }
 
@@ -52,6 +158,21 @@ ListCommand make_ListCommand(Command p1, ListCommand p2)
     return tmp;
 }
 
+/********************   ListSimpleCommand    ********************/
+
+ListSimpleCommand make_ListSimpleCommand(SimpleCommand p1, ListSimpleCommand p2)
+{
+    ListSimpleCommand tmp = (ListSimpleCommand) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating ListSimpleCommand!\n");
+        exit(1);
+    }
+    tmp->simplecommand_ = p1;
+    tmp->listsimplecommand_ = p2;
+    return tmp;
+}
+
 /********************   ListWord    ********************/
 
 ListWord make_ListWord(Word p1, ListWord p2)
@@ -64,6 +185,21 @@ ListWord make_ListWord(Word p1, ListWord p2)
     }
     tmp->word_ = p1;
     tmp->listword_ = p2;
+    return tmp;
+}
+
+/********************   ListRedirection    ********************/
+
+ListRedirection make_ListRedirection(Redirection p1, ListRedirection p2)
+{
+    ListRedirection tmp = (ListRedirection) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating ListRedirection!\n");
+        exit(1);
+    }
+    tmp->redirection_ = p1;
+    tmp->listredirection_ = p2;
     return tmp;
 }
 
@@ -87,13 +223,65 @@ Command clone_Command(Command p)
   switch(p->kind)
   {
   case is_SimpleCmd:
-    return make_SimpleCmd
-      ( strdup(p->u.simpleCmd_.word_)
-      , clone_ListWord(p->u.simpleCmd_.listword_)
-      );
+    return make_SimpleCmd (clone_SimpleCommand(p->u.simpleCmd_.simplecommand_));
+
+  case is_PipeCmd:
+    return make_PipeCmd (clone_Pipeline(p->u.pipeCmd_.pipeline_));
+
+  case is_AICmd:
+    return make_AICmd (clone_ListWord(p->u.aICmd_.listword_));
 
   default:
     fprintf(stderr, "Error: bad kind field when cloning Command!\n");
+    exit(1);
+  }
+}
+
+Pipeline clone_Pipeline(Pipeline p)
+{
+  switch(p->kind)
+  {
+  case is_PipeLine:
+    return make_PipeLine (clone_ListSimpleCommand(p->u.pipeLine_.listsimplecommand_));
+
+  default:
+    fprintf(stderr, "Error: bad kind field when cloning Pipeline!\n");
+    exit(1);
+  }
+}
+
+SimpleCommand clone_SimpleCommand(SimpleCommand p)
+{
+  switch(p->kind)
+  {
+  case is_Cmd:
+    return make_Cmd
+      ( strdup(p->u.cmd_.word_)
+      , clone_ListWord(p->u.cmd_.listword_)
+      , clone_ListRedirection(p->u.cmd_.listredirection_)
+      );
+
+  default:
+    fprintf(stderr, "Error: bad kind field when cloning SimpleCommand!\n");
+    exit(1);
+  }
+}
+
+Redirection clone_Redirection(Redirection p)
+{
+  switch(p->kind)
+  {
+  case is_RedirIn:
+    return make_RedirIn (strdup(p->u.redirIn_.word_));
+
+  case is_RedirOut:
+    return make_RedirOut (strdup(p->u.redirOut_.word_));
+
+  case is_RedirAppend:
+    return make_RedirAppend (strdup(p->u.redirAppend_.word_));
+
+  default:
+    fprintf(stderr, "Error: bad kind field when cloning Redirection!\n");
     exit(1);
   }
 }
@@ -111,6 +299,19 @@ ListCommand clone_ListCommand(ListCommand listcommand)
   else return NULL; /* clone of empty list */
 }
 
+ListSimpleCommand clone_ListSimpleCommand(ListSimpleCommand listsimplecommand)
+{
+  if (listsimplecommand)
+  {
+    /* clone of non-empty list */
+    return make_ListSimpleCommand
+      ( clone_SimpleCommand(listsimplecommand->simplecommand_)
+      , clone_ListSimpleCommand(listsimplecommand->listsimplecommand_)
+      );
+  }
+  else return NULL; /* clone of empty list */
+}
+
 ListWord clone_ListWord(ListWord listword)
 {
   if (listword)
@@ -119,6 +320,19 @@ ListWord clone_ListWord(ListWord listword)
     return make_ListWord
       ( strdup(listword->word_)
       , clone_ListWord(listword->listword_)
+      );
+  }
+  else return NULL; /* clone of empty list */
+}
+
+ListRedirection clone_ListRedirection(ListRedirection listredirection)
+{
+  if (listredirection)
+  {
+    /* clone of non-empty list */
+    return make_ListRedirection
+      ( clone_Redirection(listredirection->redirection_)
+      , clone_ListRedirection(listredirection->listredirection_)
       );
   }
   else return NULL; /* clone of empty list */
@@ -154,12 +368,74 @@ void free_Command(Command p)
   switch(p->kind)
   {
   case is_SimpleCmd:
-    free(p->u.simpleCmd_.word_);
-    free_ListWord(p->u.simpleCmd_.listword_);
+    free_SimpleCommand(p->u.simpleCmd_.simplecommand_);
+    break;
+
+  case is_PipeCmd:
+    free_Pipeline(p->u.pipeCmd_.pipeline_);
+    break;
+
+  case is_AICmd:
+    free_ListWord(p->u.aICmd_.listword_);
     break;
 
   default:
     fprintf(stderr, "Error: bad kind field when freeing Command!\n");
+    exit(1);
+  }
+  free(p);
+}
+
+void free_Pipeline(Pipeline p)
+{
+  switch(p->kind)
+  {
+  case is_PipeLine:
+    free_ListSimpleCommand(p->u.pipeLine_.listsimplecommand_);
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when freeing Pipeline!\n");
+    exit(1);
+  }
+  free(p);
+}
+
+void free_SimpleCommand(SimpleCommand p)
+{
+  switch(p->kind)
+  {
+  case is_Cmd:
+    free(p->u.cmd_.word_);
+    free_ListWord(p->u.cmd_.listword_);
+    free_ListRedirection(p->u.cmd_.listredirection_);
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when freeing SimpleCommand!\n");
+    exit(1);
+  }
+  free(p);
+}
+
+void free_Redirection(Redirection p)
+{
+  switch(p->kind)
+  {
+  case is_RedirIn:
+    free(p->u.redirIn_.word_);
+    break;
+
+  case is_RedirOut:
+    free(p->u.redirOut_.word_);
+    break;
+
+  case is_RedirAppend:
+    free(p->u.redirAppend_.word_);
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when freeing Redirection!\n");
     exit(1);
   }
   free(p);
@@ -175,6 +451,16 @@ void free_ListCommand(ListCommand listcommand)
   }
 }
 
+void free_ListSimpleCommand(ListSimpleCommand listsimplecommand)
+{
+  if (listsimplecommand)
+  {
+    free_SimpleCommand(listsimplecommand->simplecommand_);
+    free_ListSimpleCommand(listsimplecommand->listsimplecommand_);
+    free(listsimplecommand);
+  }
+}
+
 void free_ListWord(ListWord listword)
 {
   if (listword)
@@ -182,6 +468,16 @@ void free_ListWord(ListWord listword)
     free(listword->word_);
     free_ListWord(listword->listword_);
     free(listword);
+  }
+}
+
+void free_ListRedirection(ListRedirection listredirection)
+{
+  if (listredirection)
+  {
+    free_Redirection(listredirection->redirection_);
+    free_ListRedirection(listredirection->listredirection_);
+    free(listredirection);
   }
 }
 

@@ -154,13 +154,90 @@ void ppCommand(Command p, int _i_)
   {
   case is_SimpleCmd:
     if (_i_ > 0) renderC(_L_PAREN);
-    ppIdent(p->u.simpleCmd_.word_, 0);
-    ppListWord(p->u.simpleCmd_.listword_, 0);
+    ppSimpleCommand(p->u.simpleCmd_.simplecommand_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
+  case is_PipeCmd:
+    if (_i_ > 0) renderC(_L_PAREN);
+    ppPipeline(p->u.pipeCmd_.pipeline_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
+  case is_AICmd:
+    if (_i_ > 0) renderC(_L_PAREN);
+    renderS("AI");
+    ppListWord(p->u.aICmd_.listword_, 0);
     if (_i_ > 0) renderC(_R_PAREN);
     break;
 
   default:
     fprintf(stderr, "Error: bad kind field when printing Command!\n");
+    exit(1);
+  }
+}
+
+void ppPipeline(Pipeline p, int _i_)
+{
+  switch(p->kind)
+  {
+  case is_PipeLine:
+    if (_i_ > 0) renderC(_L_PAREN);
+    ppListSimpleCommand(p->u.pipeLine_.listsimplecommand_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when printing Pipeline!\n");
+    exit(1);
+  }
+}
+
+void ppSimpleCommand(SimpleCommand p, int _i_)
+{
+  switch(p->kind)
+  {
+  case is_Cmd:
+    if (_i_ > 0) renderC(_L_PAREN);
+    ppIdent(p->u.cmd_.word_, 0);
+    ppListWord(p->u.cmd_.listword_, 0);
+    ppListRedirection(p->u.cmd_.listredirection_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when printing SimpleCommand!\n");
+    exit(1);
+  }
+}
+
+void ppRedirection(Redirection p, int _i_)
+{
+  switch(p->kind)
+  {
+  case is_RedirIn:
+    if (_i_ > 0) renderC(_L_PAREN);
+    renderC('<');
+    ppIdent(p->u.redirIn_.word_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
+  case is_RedirOut:
+    if (_i_ > 0) renderC(_L_PAREN);
+    renderC('>');
+    ppIdent(p->u.redirOut_.word_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
+  case is_RedirAppend:
+    if (_i_ > 0) renderC(_L_PAREN);
+    renderS(">>");
+    ppIdent(p->u.redirAppend_.word_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when printing Redirection!\n");
     exit(1);
   }
 }
@@ -182,6 +259,23 @@ void ppListCommand(ListCommand listcommand, int i)
   }
 }
 
+void ppListSimpleCommand(ListSimpleCommand listsimplecommand, int i)
+{
+  if (listsimplecommand == 0)
+  { /* nil */
+  }
+  else if (listsimplecommand->listsimplecommand_ == 0)
+  { /* last */
+    ppSimpleCommand(listsimplecommand->simplecommand_, 0);
+  }
+  else
+  { /* cons */
+    ppSimpleCommand(listsimplecommand->simplecommand_, 0);
+    renderC('|');
+    ppListSimpleCommand(listsimplecommand->listsimplecommand_, 0);
+  }
+}
+
 void ppListWord(ListWord listword, int i)
 {
   if (listword == 0)
@@ -190,6 +284,18 @@ void ppListWord(ListWord listword, int i)
   else
   { /* cons */
     ppIdent(listword->word_, 0); ppListWord(listword->listword_, 0);
+  }
+}
+
+void ppListRedirection(ListRedirection listredirection, int i)
+{
+  if (listredirection == 0)
+  { /* nil */
+  }
+  else
+  { /* cons */
+    ppRedirection(listredirection->redirection_, 0);
+    ppListRedirection(listredirection->listredirection_, 0);
   }
 }
 
@@ -264,9 +370,31 @@ void shCommand(Command p)
 
     bufAppendC(' ');
 
-    shIdent(p->u.simpleCmd_.word_);
-  bufAppendC(' ');
-    shListWord(p->u.simpleCmd_.listword_);
+    shSimpleCommand(p->u.simpleCmd_.simplecommand_);
+
+    bufAppendC(')');
+
+    break;
+  case is_PipeCmd:
+    bufAppendC('(');
+
+    bufAppendS("PipeCmd");
+
+    bufAppendC(' ');
+
+    shPipeline(p->u.pipeCmd_.pipeline_);
+
+    bufAppendC(')');
+
+    break;
+  case is_AICmd:
+    bufAppendC('(');
+
+    bufAppendS("AICmd");
+
+    bufAppendC(' ');
+
+    shListWord(p->u.aICmd_.listword_);
 
     bufAppendC(')');
 
@@ -274,6 +402,103 @@ void shCommand(Command p)
 
   default:
     fprintf(stderr, "Error: bad kind field when showing Command!\n");
+    exit(1);
+  }
+}
+
+void shPipeline(Pipeline p)
+{
+  switch(p->kind)
+  {
+  case is_PipeLine:
+    bufAppendC('(');
+
+    bufAppendS("PipeLine");
+
+    bufAppendC(' ');
+
+    shListSimpleCommand(p->u.pipeLine_.listsimplecommand_);
+
+    bufAppendC(')');
+
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when showing Pipeline!\n");
+    exit(1);
+  }
+}
+
+void shSimpleCommand(SimpleCommand p)
+{
+  switch(p->kind)
+  {
+  case is_Cmd:
+    bufAppendC('(');
+
+    bufAppendS("Cmd");
+
+    bufAppendC(' ');
+
+    shIdent(p->u.cmd_.word_);
+  bufAppendC(' ');
+    shListWord(p->u.cmd_.listword_);
+  bufAppendC(' ');
+    shListRedirection(p->u.cmd_.listredirection_);
+
+    bufAppendC(')');
+
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when showing SimpleCommand!\n");
+    exit(1);
+  }
+}
+
+void shRedirection(Redirection p)
+{
+  switch(p->kind)
+  {
+  case is_RedirIn:
+    bufAppendC('(');
+
+    bufAppendS("RedirIn");
+
+    bufAppendC(' ');
+
+    shIdent(p->u.redirIn_.word_);
+
+    bufAppendC(')');
+
+    break;
+  case is_RedirOut:
+    bufAppendC('(');
+
+    bufAppendS("RedirOut");
+
+    bufAppendC(' ');
+
+    shIdent(p->u.redirOut_.word_);
+
+    bufAppendC(')');
+
+    break;
+  case is_RedirAppend:
+    bufAppendC('(');
+
+    bufAppendS("RedirAppend");
+
+    bufAppendC(' ');
+
+    shIdent(p->u.redirAppend_.word_);
+
+    bufAppendC(')');
+
+    break;
+
+  default:
+    fprintf(stderr, "Error: bad kind field when showing Redirection!\n");
     exit(1);
   }
 }
@@ -298,6 +523,26 @@ void shListCommand(ListCommand listcommand)
   bufAppendC(']');
 }
 
+void shListSimpleCommand(ListSimpleCommand listsimplecommand)
+{
+  bufAppendC('[');
+  while(listsimplecommand != 0)
+  {
+    if (listsimplecommand->listsimplecommand_)
+    {
+      shSimpleCommand(listsimplecommand->simplecommand_);
+      bufAppendS(", ");
+      listsimplecommand = listsimplecommand->listsimplecommand_;
+    }
+    else
+    {
+      shSimpleCommand(listsimplecommand->simplecommand_);
+      listsimplecommand = 0;
+    }
+  }
+  bufAppendC(']');
+}
+
 void shListWord(ListWord listword)
 {
   bufAppendC('[');
@@ -313,6 +558,26 @@ void shListWord(ListWord listword)
     {
       shWord(listword->word_);
       listword = 0;
+    }
+  }
+  bufAppendC(']');
+}
+
+void shListRedirection(ListRedirection listredirection)
+{
+  bufAppendC('[');
+  while(listredirection != 0)
+  {
+    if (listredirection->listredirection_)
+    {
+      shRedirection(listredirection->redirection_);
+      bufAppendS(", ");
+      listredirection = listredirection->listredirection_;
+    }
+    else
+    {
+      shRedirection(listredirection->redirection_);
+      listredirection = 0;
     }
   }
   bufAppendC(']');

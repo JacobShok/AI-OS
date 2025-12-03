@@ -5,19 +5,69 @@
 /* You might want to change the above name. */
 
 #include "Absyn.h"
+#include "../include/redirect_helpers.h"
 
+/*
+ * Execution Context - holds state during AST traversal
+ * This is passed through visitor functions to accumulate results
+ *
+ * REFACTORED for proper visitor pattern (per plan.md):
+ * - File descriptors stored directly (not filenames)
+ * - Pipeline state tracked across visitor calls
+ * - Process IDs tracked for waiting on children
+ */
+typedef struct exec_context {
+    /* Current command being built */
+    char **argv;           /* Argument array for current command */
+    int argc;              /* Number of arguments */
+    int argv_capacity;     /* Allocated capacity for argv */
 
-void visitInput(Input p);
-void visitCommand(Command p);
-void visitListCommand(ListCommand p);
-void visitListWord(ListWord p);
+    /* Redirections - USE FILE DESCRIPTORS, not filenames */
+    int stdin_fd;          /* -1 or actual fd for stdin */
+    int stdout_fd;         /* -1 or actual fd for stdout */
+    int stderr_fd;         /* -1 or actual fd for stderr (future) */
 
-void visitWord(Word p);
-void visitIdent(Ident i);
-void visitInteger(Integer i);
-void visitDouble(Double d);
-void visitChar(Char c);
-void visitString(String s);
+    /* Pipeline state - tracks pipe FDs across visitor calls */
+    int in_pipeline;         /* Boolean: are we in a pipeline? */
+    int pipeline_position;   /* Which command (0, 1, 2...) */
+    int pipeline_total;      /* Total commands in pipeline */
+    int prev_pipe[2];        /* Pipe from previous command */
+    int curr_pipe[2];        /* Pipe to next command */
+
+    /* Process state - track child PIDs for waiting */
+    pid_t *pids;            /* Array of child PIDs */
+    int pid_count;          /* Number of children */
+    int pid_capacity;       /* Capacity of pids array */
+
+    /* Execution result */
+    int exit_status;       /* Last command exit status */
+    int should_exit;       /* Set to 1 if shell should exit */
+    int has_error;         /* Flag for errors during tree walk */
+} ExecContext;
+
+/* Context management functions */
+ExecContext *exec_context_new(void);
+void exec_context_free(ExecContext *ctx);
+void exec_context_reset_command(ExecContext *ctx);
+
+/* Visitor functions - these traverse the AST */
+void visitInput(Input p, ExecContext *ctx);
+void visitCommand(Command p, ExecContext *ctx);
+void visitAICommand(ListWord p, ExecContext *ctx);
+void visitPipeline(Pipeline p, ExecContext *ctx);
+void visitSimpleCommand(SimpleCommand p, ExecContext *ctx);
+void visitRedirection(Redirection p, ExecContext *ctx);
+void visitListCommand(ListCommand p, ExecContext *ctx);
+void visitListSimpleCommand(ListSimpleCommand p, ExecContext *ctx);
+void visitListWord(ListWord p, ExecContext *ctx);
+void visitListRedirection(ListRedirection p, ExecContext *ctx);
+
+void visitWord(Word p, ExecContext *ctx);
+void visitIdent(Ident i, ExecContext *ctx);
+void visitInteger(Integer i, ExecContext *ctx);
+void visitDouble(Double d, ExecContext *ctx);
+void visitChar(Char c, ExecContext *ctx);
+void visitString(String s, ExecContext *ctx);
 
 #endif
 

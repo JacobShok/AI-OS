@@ -45,7 +45,12 @@ IDENT [a-zA-Z0-9'_]
 
 %%  /* Rules. */
 
+<INITIAL>"<"      	 return _LT;
+<INITIAL>">"      	 return _GT;
+<INITIAL>">>"      	 return _DGT;
 <INITIAL>";"      	 return _SEMI;
+<INITIAL>"|"      	 return _BAR;
+<INITIAL>"AI"      	 return _KW_AI;
 
 <INITIAL>"/*" BEGIN COMMENT;
 <COMMENT>"*/" BEGIN INITIAL;
@@ -60,7 +65,7 @@ IDENT [a-zA-Z0-9'_]
 <COMMENT2>.    /* skip */;
 <COMMENT2>[\n] /* skip */;
 
-<INITIAL>{LETTER}(\-|\.|\/|\_|({DIGIT}|{LETTER}))*    	 yylval->_string = strdup(yytext); return T_Word;
+<INITIAL>(\-|\.|\/|\_|\~|({DIGIT}|{LETTER}))+    	 yylval->_string = strdup(yytext); return T_Word;
 <INITIAL>[ \t\r\n\f]      	 /* ignore white space. */;
 <INITIAL>.      	 return _ERROR_;
 

@@ -26,15 +26,25 @@ char *printInput(Input p);
 
 void ppInput(Input p, int i);
 void ppCommand(Command p, int i);
+void ppPipeline(Pipeline p, int i);
+void ppSimpleCommand(SimpleCommand p, int i);
+void ppRedirection(Redirection p, int i);
 void ppListCommand(ListCommand p, int i);
+void ppListSimpleCommand(ListSimpleCommand p, int i);
 void ppListWord(ListWord p, int i);
+void ppListRedirection(ListRedirection p, int i);
 
 char *showInput(Input p);
 
 void shInput(Input p);
 void shCommand(Command p);
+void shPipeline(Pipeline p);
+void shSimpleCommand(SimpleCommand p);
+void shRedirection(Redirection p);
 void shListCommand(ListCommand p);
+void shListSimpleCommand(ListSimpleCommand p);
 void shListWord(ListWord p);
+void shListRedirection(ListRedirection p);
 
 void ppWord(String s, int i);
 void shWord(String s);

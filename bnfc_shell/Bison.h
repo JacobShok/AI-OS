@@ -56,7 +56,12 @@ extern int yydebug;
     YYUNDEF = 257,                 /* "invalid token"  */
     _ERROR_ = 258,                 /* _ERROR_  */
     _SEMI = 259,                   /* _SEMI  */
-    T_Word = 260                   /* T_Word  */
+    _LT = 260,                     /* _LT  */
+    _GT = 261,                     /* _GT  */
+    _DGT = 262,                    /* _DGT  */
+    _KW_AI = 263,                  /* _KW_AI  */
+    _BAR = 264,                    /* _BAR  */
+    T_Word = 265                   /* T_Word  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -65,7 +70,7 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 77 "Shell.y"
+#line 103 "Shell.y"
 
   int    _int;
   char   _char;
@@ -73,10 +78,15 @@ union YYSTYPE
   char*  _string;
   Input input_;
   Command command_;
+  Pipeline pipeline_;
+  SimpleCommand simplecommand_;
+  Redirection redirection_;
   ListCommand listcommand_;
+  ListSimpleCommand listsimplecommand_;
   ListWord listword_;
+  ListRedirection listredirection_;
 
-#line 80 "Bison.h"
+#line 90 "Bison.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

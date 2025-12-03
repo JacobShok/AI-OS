@@ -1,10 +1,11 @@
+#line 1 "Lexer.c"
 /* strdup was not in the ISO C standard before 6/2019 (C2x), but in POSIX 1003.1.
  * See: https://en.cppreference.com/w/c/experimental/dynamic/strdup
  * Setting _POSIX_C_SOURCE to 200809L activates strdup in string.h.
  */
 #define _POSIX_C_SOURCE 200809L
 
-#line 7 "lex.yy.c"
+#line 8 "Lexer.c"
 
 #define  YY_INT_ALIGNED short int
 
@@ -18,28 +19,238 @@
 #define FLEX_BETA
 #endif
 
-#ifdef yyget_lval
-#define yyget_lval_ALREADY_DEFINED
+#ifdef yy_create_buffer
+#define shell__create_buffer_ALREADY_DEFINED
 #else
-#define yyget_lval yyget_lval
+#define yy_create_buffer shell__create_buffer
+#endif
+
+#ifdef yy_delete_buffer
+#define shell__delete_buffer_ALREADY_DEFINED
+#else
+#define yy_delete_buffer shell__delete_buffer
+#endif
+
+#ifdef yy_scan_buffer
+#define shell__scan_buffer_ALREADY_DEFINED
+#else
+#define yy_scan_buffer shell__scan_buffer
+#endif
+
+#ifdef yy_scan_string
+#define shell__scan_string_ALREADY_DEFINED
+#else
+#define yy_scan_string shell__scan_string
+#endif
+
+#ifdef yy_scan_bytes
+#define shell__scan_bytes_ALREADY_DEFINED
+#else
+#define yy_scan_bytes shell__scan_bytes
+#endif
+
+#ifdef yy_init_buffer
+#define shell__init_buffer_ALREADY_DEFINED
+#else
+#define yy_init_buffer shell__init_buffer
+#endif
+
+#ifdef yy_flush_buffer
+#define shell__flush_buffer_ALREADY_DEFINED
+#else
+#define yy_flush_buffer shell__flush_buffer
+#endif
+
+#ifdef yy_load_buffer_state
+#define shell__load_buffer_state_ALREADY_DEFINED
+#else
+#define yy_load_buffer_state shell__load_buffer_state
+#endif
+
+#ifdef yy_switch_to_buffer
+#define shell__switch_to_buffer_ALREADY_DEFINED
+#else
+#define yy_switch_to_buffer shell__switch_to_buffer
+#endif
+
+#ifdef yypush_buffer_state
+#define shell_push_buffer_state_ALREADY_DEFINED
+#else
+#define yypush_buffer_state shell_push_buffer_state
+#endif
+
+#ifdef yypop_buffer_state
+#define shell_pop_buffer_state_ALREADY_DEFINED
+#else
+#define yypop_buffer_state shell_pop_buffer_state
+#endif
+
+#ifdef yyensure_buffer_stack
+#define shell_ensure_buffer_stack_ALREADY_DEFINED
+#else
+#define yyensure_buffer_stack shell_ensure_buffer_stack
+#endif
+
+#ifdef yylex
+#define shell_lex_ALREADY_DEFINED
+#else
+#define yylex shell_lex
+#endif
+
+#ifdef yyrestart
+#define shell_restart_ALREADY_DEFINED
+#else
+#define yyrestart shell_restart
+#endif
+
+#ifdef yylex_init
+#define shell_lex_init_ALREADY_DEFINED
+#else
+#define yylex_init shell_lex_init
+#endif
+
+#ifdef yylex_init_extra
+#define shell_lex_init_extra_ALREADY_DEFINED
+#else
+#define yylex_init_extra shell_lex_init_extra
+#endif
+
+#ifdef yylex_destroy
+#define shell_lex_destroy_ALREADY_DEFINED
+#else
+#define yylex_destroy shell_lex_destroy
+#endif
+
+#ifdef yyget_debug
+#define shell_get_debug_ALREADY_DEFINED
+#else
+#define yyget_debug shell_get_debug
+#endif
+
+#ifdef yyset_debug
+#define shell_set_debug_ALREADY_DEFINED
+#else
+#define yyset_debug shell_set_debug
+#endif
+
+#ifdef yyget_extra
+#define shell_get_extra_ALREADY_DEFINED
+#else
+#define yyget_extra shell_get_extra
+#endif
+
+#ifdef yyset_extra
+#define shell_set_extra_ALREADY_DEFINED
+#else
+#define yyset_extra shell_set_extra
+#endif
+
+#ifdef yyget_in
+#define shell_get_in_ALREADY_DEFINED
+#else
+#define yyget_in shell_get_in
+#endif
+
+#ifdef yyset_in
+#define shell_set_in_ALREADY_DEFINED
+#else
+#define yyset_in shell_set_in
+#endif
+
+#ifdef yyget_out
+#define shell_get_out_ALREADY_DEFINED
+#else
+#define yyget_out shell_get_out
+#endif
+
+#ifdef yyset_out
+#define shell_set_out_ALREADY_DEFINED
+#else
+#define yyset_out shell_set_out
+#endif
+
+#ifdef yyget_leng
+#define shell_get_leng_ALREADY_DEFINED
+#else
+#define yyget_leng shell_get_leng
+#endif
+
+#ifdef yyget_text
+#define shell_get_text_ALREADY_DEFINED
+#else
+#define yyget_text shell_get_text
+#endif
+
+#ifdef yyget_lineno
+#define shell_get_lineno_ALREADY_DEFINED
+#else
+#define yyget_lineno shell_get_lineno
+#endif
+
+#ifdef yyset_lineno
+#define shell_set_lineno_ALREADY_DEFINED
+#else
+#define yyset_lineno shell_set_lineno
+#endif
+
+#ifdef yyget_column
+#define shell_get_column_ALREADY_DEFINED
+#else
+#define yyget_column shell_get_column
+#endif
+
+#ifdef yyset_column
+#define shell_set_column_ALREADY_DEFINED
+#else
+#define yyset_column shell_set_column
+#endif
+
+#ifdef yywrap
+#define shell_wrap_ALREADY_DEFINED
+#else
+#define yywrap shell_wrap
+#endif
+
+#ifdef yyget_lval
+#define shell_get_lval_ALREADY_DEFINED
+#else
+#define yyget_lval shell_get_lval
 #endif
 
 #ifdef yyset_lval
-#define yyset_lval_ALREADY_DEFINED
+#define shell_set_lval_ALREADY_DEFINED
 #else
-#define yyset_lval yyset_lval
+#define yyset_lval shell_set_lval
 #endif
 
 #ifdef yyget_lloc
-#define yyget_lloc_ALREADY_DEFINED
+#define shell_get_lloc_ALREADY_DEFINED
 #else
-#define yyget_lloc yyget_lloc
+#define yyget_lloc shell_get_lloc
 #endif
 
 #ifdef yyset_lloc
-#define yyset_lloc_ALREADY_DEFINED
+#define shell_set_lloc_ALREADY_DEFINED
 #else
-#define yyset_lloc yyset_lloc
+#define yyset_lloc shell_set_lloc
+#endif
+
+#ifdef yyalloc
+#define shell_alloc_ALREADY_DEFINED
+#else
+#define yyalloc shell_alloc
+#endif
+
+#ifdef yyrealloc
+#define shell_realloc_ALREADY_DEFINED
+#else
+#define yyrealloc shell_realloc
+#endif
+
+#ifdef yyfree
+#define shell_free_ALREADY_DEFINED
+#else
+#define yyfree shell_free
 #endif
 
 /* First, we deal with  platform-specific or compiler-specific issues. */
@@ -346,7 +557,7 @@ void yyfree ( void * , yyscan_t yyscanner );
 
 /* Begin user sect3 */
 
-#define yywrap(yyscanner) (/*CONSTCOND*/1)
+#define shell_wrap(yyscanner) (/*CONSTCOND*/1)
 #define YY_SKIP_YYWRAP
 typedef flex_uint8_t YY_CHAR;
 
@@ -500,9 +711,9 @@ static void update_loc(YYLTYPE* loc, char* text)
 }
 #define YY_USER_ACTION update_loc(yylloc, yytext);
 
-#line 503 "lex.yy.c"
+#line 714 "Lexer.c"
 
-#line 505 "lex.yy.c"
+#line 716 "Lexer.c"
 
 #define INITIAL 0
 #define CHAR 1
@@ -795,7 +1006,7 @@ YY_DECL
 #line 46 "Shell.l"
 
 
-#line 798 "lex.yy.c"
+#line 1009 "Lexer.c"
 
 	while ( /*CONSTCOND*/1 )		/* loops until end-of-file is reached */
 		{
@@ -968,7 +1179,7 @@ YY_RULE_SETUP
 #line 72 "Shell.l"
 ECHO;
 	YY_BREAK
-#line 971 "lex.yy.c"
+#line 1182 "Lexer.c"
 case YY_STATE_EOF(INITIAL):
 case YY_STATE_EOF(CHAR):
 case YY_STATE_EOF(CHARESC):

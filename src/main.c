@@ -1,7 +1,69 @@
 #include "picobox.h"
+#include "cmd_spec.h"
 #include "utils.h"
 #include <string.h>
 #include <libgen.h>
+
+/* External declarations for refactored commands */
+extern void register_echo_command(void);
+extern void register_pwd_command(void);
+extern void register_true_command(void);
+extern void register_false_command(void);
+extern void register_basename_command(void);
+extern void register_dirname_command(void);
+extern void register_sleep_command(void);
+extern void register_env_command(void);
+extern void register_cat_command(void);
+extern void register_wc_command(void);
+extern void register_head_command(void);
+extern void register_tail_command(void);
+extern void register_touch_command(void);
+extern void register_mkdir_command(void);
+extern void register_cp_command(void);
+extern void register_mv_command(void);
+extern void register_rm_command(void);
+extern void register_ln_command(void);
+extern void register_chmod_command(void);
+extern void register_stat_command(void);
+extern void register_df_command(void);
+extern void register_du_command(void);
+extern void register_grep_command(void);
+extern void register_find_command(void);
+extern void register_ls_command(void);
+extern void register_pkg_command(void);
+extern void register_ai_command(void);
+
+/* Initialize command registry */
+static void init_commands(void)
+{
+    register_echo_command();
+    register_pwd_command();
+    register_true_command();
+    register_false_command();
+    register_basename_command();
+    register_dirname_command();
+    register_sleep_command();
+    register_env_command();
+    register_cat_command();
+    register_wc_command();
+    register_head_command();
+    register_tail_command();
+    register_touch_command();
+    register_mkdir_command();
+    register_cp_command();
+    register_mv_command();
+    register_rm_command();
+    register_ln_command();
+    register_chmod_command();
+    register_stat_command();
+    register_df_command();
+    register_du_command();
+    register_grep_command();
+    register_find_command();
+    register_ls_command();
+    register_pkg_command();
+    register_ai_command();
+}
 
 /*
  * Command dispatch table
@@ -47,6 +109,9 @@ const struct command commands[] = {
     {"true", cmd_true},
     {"false", cmd_false},
 
+    /* Package manager */
+    {"pkg", cmd_pkg},
+
     /* Sentinel - end of array */
     {NULL, NULL}
 };
@@ -56,9 +121,10 @@ const struct command commands[] = {
  */
 
 /*
- * Find command by name in the dispatch table
+ * Find command by name in the OLD dispatch table
+ * NOTE: This is the legacy lookup. New refactored commands use the registry.
  */
-static cmd_func_t find_command(const char *name)
+static cmd_func_t find_legacy_command(const char *name)
 {
     for (int i = 0; commands[i].name != NULL; i++) {
         if (strcmp(commands[i].name, name) == 0) {
@@ -94,6 +160,9 @@ int main(int argc, char **argv)
     char *program_name;
     char *command_name;
     cmd_func_t cmd_func;
+
+    /* Initialize command registry */
+    init_commands();
 
     /* Handle empty arguments */
     if (argc < 1 || argv[0] == NULL) {
@@ -140,7 +209,7 @@ int main(int argc, char **argv)
     }
 
     /* Find and execute the command */
-    cmd_func = find_command(command_name);
+    cmd_func = find_legacy_command(command_name);
     if (cmd_func == NULL) {
         fprintf(stderr, "picobox: unknown command '%s'\n", command_name);
         fprintf(stderr, "Try 'picobox --help' for a list of available commands.\n");

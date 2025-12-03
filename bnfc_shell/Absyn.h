@@ -30,11 +30,26 @@ typedef struct Input_ *Input;
 struct Command_;
 typedef struct Command_ *Command;
 
+struct Pipeline_;
+typedef struct Pipeline_ *Pipeline;
+
+struct SimpleCommand_;
+typedef struct SimpleCommand_ *SimpleCommand;
+
+struct Redirection_;
+typedef struct Redirection_ *Redirection;
+
 struct ListCommand_;
 typedef struct ListCommand_ *ListCommand;
 
+struct ListSimpleCommand_;
+typedef struct ListSimpleCommand_ *ListSimpleCommand;
+
 struct ListWord_;
 typedef struct ListWord_ *ListWord;
+
+struct ListRedirection_;
+typedef struct ListRedirection_ *ListRedirection;
 
 /********************   Abstract Syntax Classes    ********************/
 
@@ -51,14 +66,55 @@ Input make_StartInput(ListCommand p0);
 
 struct Command_
 {
-  enum { is_SimpleCmd } kind;
+  enum { is_SimpleCmd, is_PipeCmd, is_AICmd } kind;
   union
   {
-    struct { ListWord listword_; Word word_; } simpleCmd_;
+    struct { SimpleCommand simplecommand_; } simpleCmd_;
+    struct { Pipeline pipeline_; } pipeCmd_;
+    struct { ListWord listword_; } aICmd_;
   } u;
 };
 
-Command make_SimpleCmd(Word p0, ListWord p1);
+Command make_SimpleCmd(SimpleCommand p0);
+Command make_PipeCmd(Pipeline p0);
+Command make_AICmd(ListWord p0);
+
+struct Pipeline_
+{
+  enum { is_PipeLine } kind;
+  union
+  {
+    struct { ListSimpleCommand listsimplecommand_; } pipeLine_;
+  } u;
+};
+
+Pipeline make_PipeLine(ListSimpleCommand p0);
+
+struct SimpleCommand_
+{
+  enum { is_Cmd } kind;
+  union
+  {
+    struct { ListRedirection listredirection_; ListWord listword_; Word word_; } cmd_;
+  } u;
+};
+
+SimpleCommand make_Cmd(Word p0, ListWord p1, ListRedirection p2);
+
+struct Redirection_
+{
+  enum { is_RedirIn, is_RedirOut, is_RedirAppend } kind;
+  union
+  {
+    struct { Word word_; } redirIn_;
+    struct { Word word_; } redirOut_;
+    struct { Word word_; } redirAppend_;
+  } u;
+};
+
+Redirection make_RedirIn(Word p0);
+Redirection make_RedirOut(Word p0);
+Redirection make_RedirAppend(Word p0);
 
 struct ListCommand_
 {
@@ -68,6 +124,14 @@ struct ListCommand_
 
 ListCommand make_ListCommand(Command p1, ListCommand p2);
 
+struct ListSimpleCommand_
+{
+  SimpleCommand simplecommand_;
+  ListSimpleCommand listsimplecommand_;
+};
+
+ListSimpleCommand make_ListSimpleCommand(SimpleCommand p1, ListSimpleCommand p2);
+
 struct ListWord_
 {
   Word word_;
@@ -76,12 +140,25 @@ struct ListWord_
 
 ListWord make_ListWord(Word p1, ListWord p2);
 
+struct ListRedirection_
+{
+  Redirection redirection_;
+  ListRedirection listredirection_;
+};
+
+ListRedirection make_ListRedirection(Redirection p1, ListRedirection p2);
+
 /***************************   Cloning   ******************************/
 
 Input clone_Input(Input p);
 Command clone_Command(Command p);
+Pipeline clone_Pipeline(Pipeline p);
+SimpleCommand clone_SimpleCommand(SimpleCommand p);
+Redirection clone_Redirection(Redirection p);
 ListCommand clone_ListCommand(ListCommand p);
+ListSimpleCommand clone_ListSimpleCommand(ListSimpleCommand p);
 ListWord clone_ListWord(ListWord p);
+ListRedirection clone_ListRedirection(ListRedirection p);
 
 /********************   Recursive Destructors    **********************/
 
@@ -95,8 +172,13 @@ ListWord clone_ListWord(ListWord p);
 
 void free_Input(Input p);
 void free_Command(Command p);
+void free_Pipeline(Pipeline p);
+void free_SimpleCommand(SimpleCommand p);
+void free_Redirection(Redirection p);
 void free_ListCommand(ListCommand p);
+void free_ListSimpleCommand(ListSimpleCommand p);
 void free_ListWord(ListWord p);
+void free_ListRedirection(ListRedirection p);
 
 
 #endif

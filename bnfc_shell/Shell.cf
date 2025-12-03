@@ -1,24 +1,52 @@
--- Minimal shell grammar - Phase 3 (simple commands only)
--- This grammar supports: command_name arg1 arg2 ; command2 arg1
+-- Shell grammar - Phase 7 (with AI assistant)
+-- This grammar supports:
+--   Simple commands: command_name arg1 arg2
+--   Pipelines: cmd1 | cmd2 | cmd3
+--   Sequences: cmd1 ; cmd2 ; cmd3
+--   Redirections: cmd < input.txt, cmd > output.txt, cmd >> append.txt
+--   Combined: cmd < in.txt | grep pattern > out.txt ; cmd2
+--   AI commands: AI how do I list all files?
 
 -- Comments
 comment "/*" "*/" ;
 comment "//" "\n" ;
 comment "#" "\n" ;
 
--- Token for words (command names, arguments, filenames)
--- Matches: letters, digits, underscore, dot, slash, hyphen
-token Word (letter (letter | digit | '_' | '.' | '/' | '-')*) ;
+-- Token for words (command names, arguments, filenames, paths)
+-- Matches: letters, digits, underscore, dot, slash, hyphen, tilde
+-- Can start with letter, digit, dot, slash, tilde, or hyphen
+token Word ((letter | digit | '_' | '.' | '/' | '~' | '-') (letter | digit | '_' | '.' | '/' | '~' | '-')*) ;
+
+-- Token for AI query strings (everything after "AI" until end of line or semicolon)
+-- We'll use the built-in String type which handles quoted strings
 
 -- Entry point
 entrypoints Input ;
 
--- A shell input is a list of commands
+-- A shell input is a list of commands (separated by semicolons)
 StartInput. Input ::= [Command] ;
 
--- A command is just a word followed by arguments
-SimpleCmd. Command ::= Word [Word] ;
+-- A command can be either:
+--   - A simple command (word with arguments)
+--   - A pipeline (multiple simple commands connected by |)
+--   - An AI query (AI followed by words forming a question)
+SimpleCmd. Command ::= SimpleCommand ;
+PipeCmd.   Command ::= Pipeline ;
+AICmd.     Command ::= "AI" [Word] ;
+
+-- A pipeline is a list of simple commands separated by |
+PipeLine. Pipeline ::= [SimpleCommand] ;
+
+-- A simple command is a word followed by arguments and optional redirections
+Cmd. SimpleCommand ::= Word [Word] [Redirection] ;
+
+-- Redirection types
+RedirIn.     Redirection ::= "<" Word ;    -- Input redirection: cmd < file
+RedirOut.    Redirection ::= ">" Word ;    -- Output redirection: cmd > file
+RedirAppend. Redirection ::= ">>" Word ;   -- Append redirection: cmd >> file
 
 -- Separators
-separator Command ";" ;
-separator Word "" ;
+separator Command ";" ;           -- Commands separated by semicolons
+separator SimpleCommand "|" ;     -- Simple commands in pipeline separated by |
+separator Word "" ;               -- Words (arguments) have no separator
+separator Redirection "" ;        -- Redirections have no separator (can have multiple)
