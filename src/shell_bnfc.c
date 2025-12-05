@@ -73,15 +73,33 @@ static int builtin_help(int argc, char **argv)
     (void)argc;
     (void)argv;
 
-    printf("PicoBox BNFC Shell v%s (Phase 4: Fork/Exec)\n", PICOBOX_VERSION);
+    printf("PicoBox BNFC Shell v%s (AI-Powered)\n", PICOBOX_VERSION);
     printf("Interactive command-line interface (BNFC-powered)\n\n");
+
     printf("Built-in commands:\n");
     printf("  exit       - Exit the shell\n");
     printf("  help       - Show this help message\n");
     printf("  cd [DIR]   - Change directory\n\n");
+
     printf("External commands:\n");
     printf("  Any command in your PATH (e.g., ls, cat, echo, grep, etc.)\n");
     printf("  Commands are executed in separate processes via fork/exec\n\n");
+
+    printf("AI Assistant (Two Ways):\n");
+    printf("  @<query>         - New: Natural language to command suggestion\n");
+    printf("                     Example: @show me all .c files\n");
+    printf("                     Uses: mysh_llm.py with RAG + LLM\n");
+    printf("  AI <question>    - Legacy: Direct AI chat (grammar-based)\n");
+    printf("                     Example: AI how do I list files\n");
+    printf("                     Uses: cmd_ai.c with OpenAI API\n\n");
+
+    printf("Pipelines & Redirections:\n");
+    printf("  cmd1 | cmd2      - Pipeline (stdout of cmd1 → stdin of cmd2)\n");
+    printf("  cmd < file       - Input redirection\n");
+    printf("  cmd > file       - Output redirection\n");
+    printf("  cmd >> file      - Append output\n");
+    printf("  cmd1 ; cmd2      - Command sequence\n\n");
+
     printf("For help on a specific command, use: <command> --help\n");
     return EXIT_OK;
 }
@@ -110,6 +128,128 @@ static int builtin_cd(int argc, char **argv)
     }
 
     return EXIT_OK;
+}
+
+/*
+ * Handle AI query (lines starting with @)
+ *
+ * This is called when user types: @show me all files
+ *
+ * Process:
+ * 1. Call Python script: python3 mysh_llm.py "show me all files"
+ * 2. Read suggestion from script output
+ * 3. Display suggestion to user with formatting
+ * 4. Get y/n confirmation
+ * 5. If yes: parse and execute suggestion via BNFC
+ */
+static void handle_llm_query(const char *query, ExecContext *ctx)
+{
+    char cmd[2048];
+    char suggestion[1024];
+    FILE *fp;
+    char answer;
+    int c;
+
+    /* Validate input */
+    if (!query || query[0] == '\0') {
+        fprintf(stderr, "Error: Empty query\n");
+        return;
+    }
+
+    /* Build command to call Python helper */
+    const char *llm_script = getenv("MYSH_LLM_SCRIPT");
+    if (!llm_script) {
+        llm_script = "python3 mysh_llm.py";
+    }
+
+    /* Build command - basic escaping (assumes query doesn't contain quotes) */
+    snprintf(cmd, sizeof(cmd), "%s \"%s\" 2>&1", llm_script, query);
+
+    /* Call Python helper and capture output */
+    fp = popen(cmd, "r");
+    if (!fp) {
+        perror("popen");
+        fprintf(stderr, "Error: Failed to run AI helper script.\n");
+        fprintf(stderr, "Make sure mysh_llm.py is in your current directory.\n");
+        return;
+    }
+
+    /* Read suggestion from Python script */
+    if (fgets(suggestion, sizeof(suggestion), fp) == NULL) {
+        fprintf(stderr, "Error: AI helper returned no suggestion.\n");
+        pclose(fp);
+        return;
+    }
+
+    /* Remove trailing newline from suggestion */
+    suggestion[strcspn(suggestion, "\n")] = '\0';
+
+    /* Close pipe and check exit status */
+    int status = pclose(fp);
+    if (status != 0) {
+        fprintf(stderr, "Warning: AI helper exited with status %d\n", status);
+    }
+
+    /* Skip if suggestion is empty */
+    if (strlen(suggestion) == 0) {
+        fprintf(stderr, "Error: AI helper returned empty suggestion.\n");
+        return;
+    }
+
+    /* Display suggestion to user with nice formatting */
+    printf("\n");
+    printf("💡 AI Suggested Command:\n");
+    printf("   \033[1;32m%s\033[0m\n", suggestion);
+    printf("\n");
+    printf("Run this command? (y/n): ");
+    fflush(stdout);
+
+    /* Get user confirmation */
+    if (scanf(" %c", &answer) != 1) {
+        fprintf(stderr, "Error: Failed to read answer\n");
+        /* Clear input buffer */
+        while ((c = getchar()) != '\n' && c != EOF);
+        return;
+    }
+
+    /* Clear rest of input line */
+    while ((c = getchar()) != '\n' && c != EOF);
+
+    /* Check if user approved */
+    if (answer != 'y' && answer != 'Y') {
+        printf("Command cancelled.\n");
+        return;
+    }
+
+    /* User approved - parse and execute suggestion */
+    printf("\n");
+
+    /* Parse suggestion using BNFC parser */
+    Input ast = psInput(suggestion);
+
+    if (ast == NULL) {
+        fprintf(stderr, "Parse error: AI suggestion has invalid syntax\n");
+        fprintf(stderr, "Suggestion was: %s\n", suggestion);
+        fprintf(stderr, "This might be a bug in the AI helper.\n");
+        return;
+    }
+
+    /* Execute using visitor pattern (same as normal commands) */
+    visitInput(ast, ctx);
+
+    /* Check for errors */
+    if (ctx->has_error) {
+        fprintf(stderr, "Error: Command execution failed\n");
+    }
+
+    /* Check if command was 'exit' */
+    if (ctx->should_exit) {
+        printf("Note: AI suggested 'exit' - not executing for safety\n");
+        ctx->should_exit = 0;  /* Don't actually exit */
+    }
+
+    /* Cleanup */
+    free_Input(ast);
 }
 
 /*
@@ -629,10 +769,14 @@ int shell_bnfc_main_visitor(void)
         return EXIT_ERROR;
     }
 
-    printf("PicoBox BNFC Shell v%s (Visitor Pattern + Registry)\n", PICOBOX_VERSION);
+    printf("PicoBox BNFC Shell v%s (Visitor Pattern + Registry + AI)\n", PICOBOX_VERSION);
     printf("Type 'help' for available commands, 'exit' to quit.\n");
-    printf("Refactored commands available: echo, pwd, true, false (using argtable3)\n");
-    printf("Using VISITOR PATTERN for AST traversal (industry standard)\n\n");
+    printf("Features: 26+ commands, pipelines, redirections, dual AI systems\n");
+    printf("\n");
+    printf("💡 Try the AI assistant:\n");
+    printf("   @show me all files        (New: mysh_llm.py with RAG)\n");
+    printf("   AI how do I list files    (Legacy: cmd_ai.c)\n");
+    printf("\n");
 
     while (1) {
         /* Print prompt */
@@ -655,6 +799,26 @@ int shell_bnfc_main_visitor(void)
         /* Skip empty lines */
         if (line[0] == '\0') {
             continue;
+        }
+
+        /* Check for AI query (@ prefix) - BEFORE BNFC parsing
+         *
+         * If line starts with @, it's an AI query.
+         * We handle this BEFORE calling psInput() so the grammar
+         * never sees the @ character.
+         *
+         * This keeps our existing AICmd grammar rule completely
+         * independent - "AI how do I..." still works via BNFC.
+         *
+         * Examples:
+         *   @show all files      → AI helper
+         *   AI how do I list     → BNFC parser → AICmd
+         *   ls -la               → BNFC parser → SimpleCmd
+         */
+        if (line[0] == '@') {
+            /* Skip the @ and pass rest to AI helper */
+            handle_llm_query(line + 1, ctx);
+            continue;  /* Go back to prompt, don't parse with BNFC */
         }
 
         /* Parse the line using BNFC parser */

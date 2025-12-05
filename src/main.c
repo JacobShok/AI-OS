@@ -135,6 +135,83 @@ static cmd_func_t find_legacy_command(const char *name)
 }
 
 /*
+ * Print all commands in JSON format for AI helper
+ *
+ * Output format:
+ * {
+ *   "commands": [
+ *     {
+ *       "name": "echo",
+ *       "summary": "print text to stdout",
+ *       "description": "Echo the STRING(s) to standard output...",
+ *       "usage": "echo [OPTION]... [STRING]..."
+ *     },
+ *     ...
+ *   ]
+ * }
+ */
+static void print_commands_json(void)
+{
+    int first = 1;
+
+    printf("{\n");
+    printf("  \"commands\": [\n");
+
+    /* Iterate through command dispatch table */
+    for (int i = 0; commands[i].name != NULL; i++) {
+        /* Add comma before all but first command */
+        if (!first) {
+            printf(",\n");
+        }
+        first = 0;
+
+        printf("    {\n");
+        printf("      \"name\": \"%s\",\n", commands[i].name);
+
+        /* Get command spec from registry for detailed info */
+        const cmd_spec_t *spec = find_command(commands[i].name);
+
+        if (spec) {
+            /* Use detailed info from spec */
+            printf("      \"summary\": \"%s\",\n",
+                   spec->summary ? spec->summary : "");
+
+            /* Escape quotes and newlines in description */
+            if (spec->long_help) {
+                printf("      \"description\": \"");
+                for (const char *p = spec->long_help; *p; p++) {
+                    if (*p == '"' || *p == '\\') {
+                        putchar('\\');
+                    }
+                    if (*p == '\n') {
+                        printf("\\n");
+                    } else {
+                        putchar(*p);
+                    }
+                }
+                printf("\",\n");
+            } else {
+                printf("      \"description\": \"\",\n");
+            }
+
+            /* Usage string */
+            printf("      \"usage\": \"%s [OPTIONS]...\"\n", commands[i].name);
+        } else {
+            /* Fallback if no spec found */
+            printf("      \"summary\": \"Unix utility\",\n");
+            printf("      \"description\": \"See '%s --help' for details\",\n",
+                   commands[i].name);
+            printf("      \"usage\": \"%s [OPTIONS]...\"\n", commands[i].name);
+        }
+
+        printf("    }");
+    }
+
+    printf("\n  ]\n");
+    printf("}\n");
+}
+
+/*
  * Print usage information for picobox
  */
 static void print_usage(void)
@@ -163,6 +240,12 @@ int main(int argc, char **argv)
 
     /* Initialize command registry */
     init_commands();
+
+    /* Handle --commands-json flag for AI integration */
+    if (argc >= 2 && strcmp(argv[1], "--commands-json") == 0) {
+        print_commands_json();
+        return EXIT_OK;
+    }
 
     /* Handle empty arguments */
     if (argc < 1 || argv[0] == NULL) {
