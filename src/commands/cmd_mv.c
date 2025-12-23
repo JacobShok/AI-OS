@@ -17,7 +17,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int mv_run(int argc, char **argv);
+int mv_run(int argc, char **argv, FILE *in, FILE *out);
 void mv_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -46,8 +46,10 @@ static void build_mv_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int mv_run(int argc, char **argv)
+int mv_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     const char *src;
     const char *dest;
@@ -129,6 +131,6 @@ void register_mv_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_mv_spec.run(argc, argv);
+    return cmd_mv_spec.run(argc, argv, stdin, stdout);
 }
 #endif

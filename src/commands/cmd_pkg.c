@@ -811,7 +811,9 @@ void pkg_print_usage(FILE *out) {
 }
 
 // === RUN FUNCTION ===
-int pkg_run(int argc, char **argv) {
+int pkg_run(int argc, char **argv, FILE *in, FILE *out) {
+    (void)in;
+    (void)out;
     int nerrors;
     int exit_code = EXIT_OK;
 
@@ -902,6 +904,6 @@ void register_pkg_command(void) {
 // === STANDALONE MAIN ===
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv) {
-    return cmd_pkg_spec.run(argc, argv);
+    return cmd_pkg_spec.run(argc, argv, stdin, stdout);
 }
 #endif

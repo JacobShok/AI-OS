@@ -20,7 +20,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int wc_run(int argc, char **argv);
+int wc_run(int argc, char **argv, FILE *in, FILE *out);
 void wc_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -121,8 +121,10 @@ static int wc_file(const char *filename, int show_lines, int show_words, int sho
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int wc_run(int argc, char **argv)
+int wc_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int show_lines, show_words, show_bytes;
     long total_lines = 0, total_words = 0, total_bytes = 0;
@@ -231,6 +233,6 @@ void register_wc_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_wc_spec.run(argc, argv);
+    return cmd_wc_spec.run(argc, argv, stdin, stdout);
 }
 #endif

@@ -21,7 +21,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int touch_run(int argc, char **argv);
+int touch_run(int argc, char **argv, FILE *in, FILE *out);
 void touch_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -87,8 +87,10 @@ static int touch_file(const char *filename, int no_create)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int touch_run(int argc, char **argv)
+int touch_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int no_create = 0;
     int i;
@@ -174,6 +176,6 @@ void register_touch_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_touch_spec.run(argc, argv);
+    return cmd_touch_spec.run(argc, argv, stdin, stdout);
 }
 #endif

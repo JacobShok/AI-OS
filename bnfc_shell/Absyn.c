@@ -66,6 +66,21 @@ Command make_AICmd(ListWord p1)
     return tmp;
 }
 
+/********************   AIString    ********************/
+
+Command make_AIString(StringLiteral p1)
+{
+    Command tmp = (Command) malloc(sizeof(*tmp));
+    if (!tmp)
+    {
+        fprintf(stderr, "Error: out of memory when allocating AIString!\n");
+        exit(1);
+    }
+    tmp->kind = is_AIString;
+    tmp->u.aIString_.stringliteral_ = p1;
+    return tmp;
+}
+
 /********************   PipeLine    ********************/
 
 Pipeline make_PipeLine(ListSimpleCommand p1)
@@ -231,6 +246,9 @@ Command clone_Command(Command p)
   case is_AICmd:
     return make_AICmd (clone_ListWord(p->u.aICmd_.listword_));
 
+  case is_AIString:
+    return make_AIString (strdup(p->u.aIString_.stringliteral_));
+
   default:
     fprintf(stderr, "Error: bad kind field when cloning Command!\n");
     exit(1);
@@ -377,6 +395,10 @@ void free_Command(Command p)
 
   case is_AICmd:
     free_ListWord(p->u.aICmd_.listword_);
+    break;
+
+  case is_AIString:
+    free(p->u.aIString_.stringliteral_);
     break;
 
   default:

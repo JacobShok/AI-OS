@@ -1,1176 +1,1305 @@
-# AGENT.md: Programming Best Practices for AI Integration
-## Test-Driven Development & Professional Standards
+agent.md
+Agent Instructions: Shell Variables & Thread-Based Execution
+This document provides step-by-step instructions for implementing the plan.md. Follow these instructions sequentially and test after each step.
 
----
+AGENT WORKFLOW
+General Rules:
 
-## 🎯 **CORE PHILOSOPHY**
+Read before coding: Understand what you're implementing
+Test after every change: Don't continue if tests fail
+Commit frequently: Small, logical commits with clear messages
+Ask if stuck: Don't waste time on blocked tasks
 
-> **"Test after EVERY change. Commit after EVERY successful test. Document as you go."**
 
-This document provides **prescriptive guidance** on writing professional, maintainable code for the AI integration project. Follow these practices religiously to avoid bugs, facilitate debugging, and produce production-quality software.
+PHASE 1: SHELL VARIABLES
+Step 1.1: Create Hash Table Implementation
+Task: Create include/var_table.h and src/var_table.c
+File: include/var_table.h
+c#ifndef VAR_TABLE_H
+#define VAR_TABLE_H
 
----
+#include <stddef.h>
 
-## 📐 **FUNDAMENTAL PRINCIPLES**
+/* Variable table entry (hash bucket node) */
+typedef struct var_entry {
+    char *name;
+    char *value;
+    struct var_entry *next;
+} var_entry_t;
 
-### **1. The Testing Pyramid**
+/* Variable table (hash table) */
+typedef struct var_table {
+    var_entry_t **buckets;
+    size_t size;
+    size_t count;
+} var_table_t;
 
-```
-        /\
-       /  \      Unit Tests (Fast, Many)
-      /____\
-     /      \    Integration Tests (Medium Speed, Some)
-    /________\
-   /          \  End-to-End Tests (Slow, Few)
-  /__________\
-```
+/* Create new variable table with given bucket count */
+var_table_t* var_table_create(size_t size);
 
-**Application to This Project**:
+/* Destroy variable table and free all memory */
+void var_table_destroy(var_table_t *table);
 
-- **Unit Tests**: Test each function independently
-  - `print_commands_json()` → Valid JSON?
-  - `score_command()` → Correct scores?
-  - `handle_llm_query()` → Proper error handling?
+/* Set variable (creates if doesn't exist, updates if exists) */
+int var_table_set(var_table_t *table, const char *name, const char *value);
 
-- **Integration Tests**: Test component interactions
-  - Shell calls Python script → Output captured?
-  - Python calls shell --commands-json → JSON parsed?
-  - Suggestion parsed by BNFC → AST correct?
+/* Get variable value (returns NULL if not found) */
+const char* var_table_get(var_table_t *table, const char *name);
 
-- **End-to-End Tests**: Test complete workflows
-  - User types `@list files` → Command executes?
-  - Error recovery → Shell still usable?
+/* Unset (delete) variable (returns 0 on success, -1 if not found) */
+int var_table_unset(var_table_t *table, const char *name);
 
-### **2. The Red-Green-Refactor Cycle**
+#endif /* VAR_TABLE_H */
+File: src/var_table.c
+c#include "var_table.h"
+#include <stdlib.h>
+#include <string.h>
+#include <stdio.h>
 
-```
-┌──────────────┐
-│   RED        │  Write test that fails
-│   (Failing)  │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│   GREEN      │  Write minimum code to pass
-│   (Passing)  │
-└──────┬───────┘
-       │
-       ▼
-┌──────────────┐
-│   REFACTOR   │  Clean up code
-│   (Better)   │
-└──────┬───────┘
-       │
-       └────────► Repeat
-```
-
-**Example**:
-
-```bash
-# RED: Test fails
-./picobox --commands-json
-# Expected: JSON
-# Actual: Error
-
-# GREEN: Implement minimum
-# Add print_commands_json() with hardcoded output
-./picobox --commands-json
-# Now returns: {"commands":[]}
-
-# REFACTOR: Make it real
-# Actually iterate through commands array
-./picobox --commands-json
-# Now returns: {"commands":[{"name":"echo",...},...]}
-
-# COMMIT
-git add main.c
-git commit -m "Add --commands-json flag"
-```
-
-### **3. Single Responsibility Principle**
-
-**Each function should do ONE thing and do it well.**
-
-❌ **Bad Example**:
-```c
-void handle_ai_query(const char *query) {
-    // 1. Build command
-    // 2. Call Python
-    // 3. Read output
-    // 4. Display to user
-    // 5. Get confirmation
-    // 6. Parse suggestion
-    // 7. Execute command
-    // TOO MANY RESPONSIBILITIES!
-}
-```
-
-✅ **Good Example**:
-```c
-void handle_llm_query(const char *query) {
-    char *suggestion = get_ai_suggestion(query);
-    if (!suggestion) return;
+/*
+ * Simple hash function (djb2 algorithm)
+ * Converts string to bucket index
+ */
+static unsigned long hash(const char *str)
+{
+    unsigned long hash = 5381;
+    int c;
     
-    if (confirm_with_user(suggestion)) {
-        execute_suggestion(suggestion);
+    while ((c = *str++)) {
+        hash = ((hash << 5) + hash) + c; /* hash * 33 + c */
     }
     
-    free(suggestion);
+    return hash;
 }
 
-char *get_ai_suggestion(const char *query) {
-    // Only responsible for getting suggestion
-}
-
-int confirm_with_user(const char *cmd) {
-    // Only responsible for confirmation
-}
-
-void execute_suggestion(const char *cmd) {
-    // Only responsible for execution
-}
-```
-
----
-
-## 🔍 **CODE QUALITY STANDARDS**
-
-### **Error Handling**
-
-**RULE: Check EVERY system call, library function, and allocation.**
-
-❌ **Lazy Code** (Don't do this):
-```c
-FILE *fp = fopen("file.txt", "r");
-fgets(buffer, sizeof(buffer), fp);  // CRASH if fp is NULL!
-```
-
-✅ **Professional Code**:
-```c
-FILE *fp = fopen("file.txt", "r");
-if (!fp) {
-    perror("fopen");
-    return ERROR_FILE_NOT_FOUND;
-}
-
-if (fgets(buffer, sizeof(buffer), fp) == NULL) {
-    if (ferror(fp)) {
-        perror("fgets");
-        fclose(fp);
-        return ERROR_READ_FAILED;
+/*
+ * Create new variable table
+ */
+var_table_t* var_table_create(size_t size)
+{
+    var_table_t *table = malloc(sizeof(var_table_t));
+    if (!table) {
+        perror("malloc");
+        return NULL;
     }
-    // EOF is okay
+    
+    table->size = size;
+    table->count = 0;
+    
+    /* Allocate bucket array and initialize to NULL */
+    table->buckets = calloc(size, sizeof(var_entry_t *));
+    if (!table->buckets) {
+        perror("calloc");
+        free(table);
+        return NULL;
+    }
+    
+    return table;
 }
 
-fclose(fp);
-```
+/*
+ * Destroy variable table
+ * Frees all entries and the table itself
+ */
+void var_table_destroy(var_table_t *table)
+{
+    if (!table) return;
+    
+    /* Free all entries in all buckets */
+    for (size_t i = 0; i < table->size; i++) {
+        var_entry_t *entry = table->buckets[i];
+        while (entry) {
+            var_entry_t *next = entry->next;
+            free(entry->name);
+            free(entry->value);
+            free(entry);
+            entry = next;
+        }
+    }
+    
+    free(table->buckets);
+    free(table);
+}
 
-**Checklist for Error Handling**:
+/*
+ * Set variable in table
+ * Creates new entry or updates existing one
+ * Returns 0 on success, -1 on error
+ */
+int var_table_set(var_table_t *table, const char *name, const char *value)
+{
+    if (!table || !name || !value) {
+        return -1;
+    }
+    
+    /* Calculate bucket index */
+    unsigned long h = hash(name);
+    size_t index = h % table->size;
+    
+    /* Search for existing entry */
+    var_entry_t *entry = table->buckets[index];
+    while (entry) {
+        if (strcmp(entry->name, name) == 0) {
+            /* Found existing entry - update value */
+            char *new_value = strdup(value);
+            if (!new_value) {
+                perror("strdup");
+                return -1;
+            }
+            free(entry->value);
+            entry->value = new_value;
+            return 0;
+        }
+        entry = entry->next;
+    }
+    
+    /* Not found - create new entry */
+    entry = malloc(sizeof(var_entry_t));
+    if (!entry) {
+        perror("malloc");
+        return -1;
+    }
+    
+    entry->name = strdup(name);
+    entry->value = strdup(value);
+    
+    if (!entry->name || !entry->value) {
+        perror("strdup");
+        free(entry->name);
+        free(entry->value);
+        free(entry);
+        return -1;
+    }
+    
+    /* Insert at head of bucket list */
+    entry->next = table->buckets[index];
+    table->buckets[index] = entry;
+    table->count++;
+    
+    return 0;
+}
 
-- [ ] Check return value of `malloc()`, `calloc()`, `realloc()`
-- [ ] Check return value of `fopen()`, `popen()`
-- [ ] Check return value of `fgets()`, `fread()`
-- [ ] Check return value of `fork()`, `exec()`
-- [ ] Check return value of `pipe()`, `dup2()`
-- [ ] Check return value of `psInput()` (BNFC parser)
-- [ ] Check return value of `exec_context_new()`
-- [ ] Use `perror()` or `fprintf(stderr, ...)` for errors
-- [ ] Clean up resources before returning on error
+/*
+ * Get variable from table
+ * Returns value or NULL if not found
+ */
+const char* var_table_get(var_table_t *table, const char *name)
+{
+    if (!table || !name) {
+        return NULL;
+    }
+    
+    /* Calculate bucket index */
+    unsigned long h = hash(name);
+    size_t index = h % table->size;
+    
+    /* Search for entry */
+    var_entry_t *entry = table->buckets[index];
+    while (entry) {
+        if (strcmp(entry->name, name) == 0) {
+            return entry->value;
+        }
+        entry = entry->next;
+    }
+    
+    return NULL;  /* Not found */
+}
 
-**Testing Error Handling**:
+/*
+ * Unset (delete) variable from table
+ * Returns 0 on success, -1 if not found
+ */
+int var_table_unset(var_table_t *table, const char *name)
+{
+    if (!table || !name) {
+        return -1;
+    }
+    
+    /* Calculate bucket index */
+    unsigned long h = hash(name);
+    size_t index = h % table->size;
+    
+    /* Search for entry */
+    var_entry_t **ptr = &table->buckets[index];
+    while (*ptr) {
+        var_entry_t *entry = *ptr;
+        if (strcmp(entry->name, name) == 0) {
+            /* Found it - remove from list */
+            *ptr = entry->next;
+            free(entry->name);
+            free(entry->value);
+            free(entry);
+            table->count--;
+            return 0;
+        }
+        ptr = &entry->next;
+    }
+    
+    return -1;  /* Not found */
+}
+Compile & Test:
+bash# Add to Makefile:
+# SRCS += src/var_table.c
 
-```bash
-# Test malloc failure (hard to simulate, but check code)
-# Test file not found
-./picobox --commands-json > /dev/null 2>&1 || echo "Handle this!"
+make clean && make
 
-# Test popen failure
-rm mysh_llm.py  # Temporarily remove script
+# Create test program: tests/test_var_table.c
+# Compile and run basic tests
+./test_var_table
+Test Checklist:
+
+ Create table succeeds
+ Set and get variable works
+ Update existing variable works
+ Get non-existent returns NULL
+ Unset works
+ No memory leaks (valgrind)
+
+
+Step 1.2: Integrate Variable Table into ExecContext
+Task: Modify include/Skeleton.h and src/bnfc/Skeleton.c
+File: include/Skeleton.h (add near top):
+c#include "var_table.h"  /* Add this include */
+File: include/Skeleton.h (modify struct):
+ctypedef struct exec_context {
+    /* ... existing fields ... */
+    
+    /* Variable storage */
+    var_table_t *shell_vars;   /* Shell-local variables */
+    
+} ExecContext;
+File: src/bnfc/Skeleton.c (modify exec_context_new):
+cExecContext *exec_context_new(void)
+{
+    ExecContext *ctx = calloc(1, sizeof(ExecContext));
+    if (!ctx) {
+        perror("calloc");
+        return NULL;
+    }
+
+    /* ... existing initialization ... */
+    
+    /* Initialize variable table (128 buckets) */
+    ctx->shell_vars = var_table_create(128);
+    if (!ctx->shell_vars) {
+        fprintf(stderr, "Failed to create variable table\n");
+        free(ctx->argv);
+        free(ctx->pids);
+        free(ctx);
+        return NULL;
+    }
+
+    return ctx;
+}
+File: src/bnfc/Skeleton.c (modify exec_context_free):
+cvoid exec_context_free(ExecContext *ctx)
+{
+    if (!ctx) return;
+
+    /* ... existing cleanup ... */
+    
+    /* Free variable table */
+    var_table_destroy(ctx->shell_vars);
+    
+    free(ctx);
+}
+Compile & Test:
+bashmake clean && make
 ./picobox
-$ @test query
-# Should print helpful error, not crash
+# Should start without errors
+exit
+Test Checklist:
 
-# Test parse failure
-./picobox
-$ @test
-# Python returns "xyz123nonsense"
-# (y to execute)
-# Should print "Parse error", not crash
+ Shell starts without errors
+ Shell exits cleanly
+ No memory leaks (valgrind ./picobox)
 
-# Restore script
-git restore mysh_llm.py
-```
 
-### **Memory Management**
-
-**RULE: Every `malloc` needs a `free`. Every `open` needs a `close`.**
-
-✅ **RAII Pattern** (Resource Acquisition Is Initialization):
-
-```c
-int my_function(void) {
-    char *buffer = NULL;
-    FILE *fp = NULL;
-    int result = ERROR;
+Step 1.3: Implement Variable Expansion
+Task: Modify visitWord() in src/bnfc/Skeleton.c
+Add helper function BEFORE visitWord():
+c/*
+ * Expand variable references in a word
+ * 
+ * Supports:
+ *   $VAR       - Shell or environment variable
+ *   $$         - Process ID
+ *   $?         - Last exit status
+ *   $0         - Shell name
+ * 
+ * Returns: Newly allocated string with expansions (caller must free)
+ */
+static char* expand_variables(const char *word, ExecContext *ctx)
+{
+    /* Allocate result buffer (max 4KB) */
+    char *result = malloc(4096);
+    if (!result) {
+        perror("malloc");
+        return NULL;
+    }
     
-    // Allocate resources
-    buffer = malloc(1024);
-    if (!buffer) goto cleanup;
+    char *dst = result;
+    const char *src = word;
     
-    fp = fopen("file.txt", "r");
-    if (!fp) goto cleanup;
+    while (*src && (dst - result) < 4000) {  /* Leave room for null */
+        if (*src == '$') {
+            src++;  /* Skip $ */
+            
+            /* Handle special variables */
+            if (*src == '$') {
+                /* $$ = process ID */
+                dst += sprintf(dst, "%d", getpid());
+                src++;
+                continue;
+            } else if (*src == '?') {
+                /* $? = last exit status */
+                dst += sprintf(dst, "%d", ctx->exit_status);
+                src++;
+                continue;
+            } else if (*src == '0') {
+                /* $0 = shell name */
+                dst += sprintf(dst, "picobox");
+                src++;
+                continue;
+            } else if (!isalnum(*src) && *src != '_') {
+                /* Just a $ with no valid var name - keep literal */
+                *dst++ = '$';
+                continue;
+            }
+            
+            /* Extract variable name (alphanumeric + underscore) */
+            char varname[256];
+            int i = 0;
+            while (*src && (isalnum(*src) || *src == '_') && i < 255) {
+                varname[i++] = *src++;
+            }
+            varname[i] = '\0';
+            
+            if (i == 0) {
+                /* Shouldn't happen, but just in case */
+                *dst++ = '$';
+                continue;
+            }
+            
+            /* Look up variable - shell vars first, then environment */
+            const char *value = var_table_get(ctx->shell_vars, varname);
+            if (!value) {
+                value = getenv(varname);
+            }
+            
+            if (value) {
+                /* Copy value into result */
+                size_t value_len = strlen(value);
+                if ((dst - result) + value_len < 4000) {
+                    strcpy(dst, value);
+                    dst += value_len;
+                }
+            }
+            /* If not found, expand to empty string (POSIX behavior) */
+            
+        } else {
+            /* Regular character - copy as-is */
+            *dst++ = *src++;
+        }
+    }
     
-    // Do work
-    // ...
-    
-    result = SUCCESS;
-    
-cleanup:
-    // Free resources (safe even if NULL)
-    free(buffer);
-    if (fp) fclose(fp);
+    *dst = '\0';
     return result;
 }
-```
+Modify visitWord():
+cvoid visitWord(Word p, ExecContext *ctx)
+{
+    /* Grow argv if needed */
+    if (ctx->argc >= ctx->argv_capacity - 1) {
+        ctx->argv_capacity *= 2;
+        ctx->argv = realloc(ctx->argv, ctx->argv_capacity * sizeof(char *));
+        if (!ctx->argv) {
+            perror("realloc");
+            exit(1);
+        }
+    }
 
-**Memory Leak Detection**:
+    /* Expand variables in word, then add to argv */
+    ctx->argv[ctx->argc] = expand_variables(p, ctx);
+    if (!ctx->argv[ctx->argc]) {
+        perror("expand_variables");
+        exit(1);
+    }
+    ctx->argc++;
+}
+Compile & Test:
+bashmake clean && make
+./picobox
+$ echo $$
+<should print PID>
+$ echo $HOME
+<should print home directory>
+$ echo $NOTEXIST
+<should print empty line>
+$ exit
+Test Checklist:
 
-```bash
-# Compile with debug symbols
-make CFLAGS="-g -O0"
+ echo $$ prints process ID
+ echo $HOME prints home directory
+ echo $NOTEXIST prints empty line
+ echo $? prints 0 (last exit status)
+ No memory leaks
 
-# Run with valgrind
-valgrind --leak-check=full \
-         --show-leak-kinds=all \
-         --track-origins=yes \
-         ./picobox << 'EOF'
-@list files
-n
-ls
-echo test
+
+Step 1.4: Add Variable Assignment
+Task: Modify visitSimpleCommand() to detect VAR=VALUE pattern
+File: src/bnfc/Skeleton.c (in visitSimpleCommand, after building argv):
+Find this section:
+c/* Skip if no command */
+if (ctx->argc == 0 || !ctx->argv[0]) {
+    break;
+}
+Add BEFORE the execution logic (before if (ctx->in_pipeline)):
+c/* Check for variable assignment (VAR=VALUE) */
+if (strchr(ctx->argv[0], '=') != NULL) {
+    /* Might be an assignment - validate it's not a command with = in path */
+    if (strchr(ctx->argv[0], '/') == NULL) {
+        /* No slash - likely an assignment */
+        char *equals = strchr(ctx->argv[0], '=');
+        *equals = '\0';  /* Split at = */
+        char *name = ctx->argv[0];
+        char *value = equals + 1;
+        
+        /* Validate variable name (must start with letter or underscore) */
+        if (isalpha(name[0]) || name[0] == '_') {
+            /* Valid variable name - set it */
+            if (var_table_set(ctx->shell_vars, name, value) == 0) {
+                ctx->exit_status = EXIT_OK;
+            } else {
+                fprintf(stderr, "Failed to set variable %s\n", name);
+                ctx->exit_status = EXIT_ERROR;
+            }
+            break;  /* Don't execute as command */
+        } else {
+            /* Invalid variable name - restore = and try to execute */
+            *equals = '=';
+        }
+    }
+}
+Compile & Test:
+bashmake clean && make
+./picobox
+$ myvar=hello
+$ echo $myvar
+hello
+$ count=42
+$ echo $count
+42
+$ 123bad=value
+<should give error or execute as command>
+$ exit
+Test Checklist:
+
+ myvar=hello works
+ echo $myvar prints "hello"
+ Reassignment works (myvar=world; echo $myvar → "world")
+ Invalid names rejected (123var=test)
+ No memory leaks
+
+
+Step 1.5: Add Export Built-in
+Task: Add export command to set environment variables
+File: src/bnfc/Skeleton.c (add helper function):
+c/*
+ * export built-in command
+ * 
+ * Usage:
+ *   export VAR=VALUE    - Set and export to environment
+ *   export VAR          - Export existing shell variable
+ */
+static int builtin_export(ExecContext *ctx)
+{
+    if (ctx->argc < 2) {
+        fprintf(stderr, "export: usage: export VAR=VALUE or export VAR\n");
+        return EXIT_ERROR;
+    }
+    
+    for (int i = 1; i < ctx->argc; i++) {
+        char *arg = ctx->argv[i];
+        char *equals = strchr(arg, '=');
+        
+        if (equals) {
+            /* export VAR=VALUE */
+            *equals = '\0';
+            char *name = arg;
+            char *value = equals + 1;
+            
+            /* Validate variable name */
+            if (!isalpha(name[0]) && name[0] != '_') {
+                fprintf(stderr, "export: invalid variable name: %s\n", name);
+                *equals = '=';  /* Restore for error message */
+                return EXIT_ERROR;
+            }
+            
+            if (setenv(name, value, 1) != 0) {
+                perror("export: setenv");
+                return EXIT_ERROR;
+            }
+        } else {
+            /* export VAR - export existing shell variable */
+            const char *value = var_table_get(ctx->shell_vars, arg);
+            if (!value) {
+                fprintf(stderr, "export: %s: not found\n", arg);
+                return EXIT_ERROR;
+            }
+            
+            if (setenv(arg, value, 1) != 0) {
+                perror("export: setenv");
+                return EXIT_ERROR;
+            }
+        }
+    }
+    
+    return EXIT_OK;
+}
+File: src/bnfc/Skeleton.c (add to built-in checks in visitSimpleCommand):
+Find this section:
+c/* Check for built-ins that MUST run in parent */
+if (strcmp(ctx->argv[0], "exit") == 0) {
+    ctx->should_exit = 1;
+    ctx->exit_status = EXIT_OK;
+    break;
+} else if (strcmp(ctx->argv[0], "cd") == 0) {
+    ctx->exit_status = builtin_cd(ctx);
+    break;
+} else if (strcmp(ctx->argv[0], "help") == 0) {
+    ctx->exit_status = builtin_help(ctx);
+    break;
+}
+Add after the help check:
+c} else if (strcmp(ctx->argv[0], "export") == 0) {
+    ctx->exit_status = builtin_export(ctx);
+    break;
+}
+Compile & Test:
+bashmake clean && make
+./picobox
+$ myvar=test
+$ export myvar
+$ echo $myvar
+test
+$ export NEWVAR=hello
+$ echo $NEWVAR
+hello
+$ exit
+Test Checklist:
+
+ export VAR=VALUE sets environment variable
+ export VAR exports shell variable to environment
+ Exported variables visible in child processes
+ No memory leaks
+
+
+PHASE 2: THREAD-BASED PIPELINE EXECUTION
+Step 2.1: Add Thread Support to ExecContext
+Task: Modify include/Skeleton.h to track threads
+File: include/Skeleton.h (add include at top):
+c#include <pthread.h>
+File: include/Skeleton.h (modify struct):
+ctypedef struct exec_context {
+    /* ... existing fields ... */
+    
+    /* Thread tracking (for built-in commands in pipelines) */
+    pthread_t *threads;      /* Array of thread IDs */
+    int thread_count;        /* Number of threads created */
+    int thread_capacity;     /* Allocated capacity */
+    
+} ExecContext;
+File: src/bnfc/Skeleton.c (modify exec_context_new):
+c/* Initialize thread tracking array */
+ctx->thread_capacity = 8;
+ctx->threads = malloc(ctx->thread_capacity * sizeof(pthread_t));
+if (!ctx->threads) {
+    var_table_destroy(ctx->shell_vars);
+    free(ctx->pids);
+    free(ctx->argv);
+    free(ctx);
+    return NULL;
+}
+ctx->thread_count = 0;
+File: src/bnfc/Skeleton.c (modify exec_context_free):
+c/* Free thread array */
+free(ctx->threads);
+Compile & Test:
+bashmake clean && make
+./picobox
+$ echo test
+test
+$ exit
+Test Checklist:
+
+ Shell compiles with pthread
+ Shell starts without errors
+ No memory leaks
+
+
+Step 2.2: Create Thread Execution Infrastructure
+Task: Create include/thread_exec.h and src/thread_exec.c
+File: include/thread_exec.h:
+c#ifndef THREAD_EXEC_H
+#define THREAD_EXEC_H
+
+#include "Skeleton.h"
+#include "cmd_spec.h"
+#include <pthread.h>
+
+/*
+ * Thread argument structure
+ * Contains everything a thread needs to execute a built-in command
+ * 
+ * IMPORTANT: argv is COPIED (thread-private) but ctx is SHARED
+ */
+typedef struct thread_args {
+    int argc;                /* Argument count */
+    char **argv;             /* Argument array (THREAD-PRIVATE COPY) */
+    int stdin_fd;            /* File descriptor for stdin (-1 if none) */
+    int stdout_fd;           /* File descriptor for stdout (-1 if none) */
+    const cmd_spec_t *spec;  /* Command specification (function to call) */
+    int exit_status;         /* Thread's exit status (set before exit) */
+} thread_args_t;
+
+/*
+ * Thread entry point for built-in command execution
+ * This is what pthread_create() calls
+ * 
+ * @param arg - Pointer to thread_args_t structure
+ * @return Exit status (as void pointer)
+ */
+void* thread_execute_builtin(void *arg);
+
+/*
+ * Create thread args structure
+ * Makes copies of argc/argv so thread has private data
+ * 
+ * @param argc - Argument count
+ * @param argv - Argument array (will be COPIED)
+ * @param stdin_fd - stdin file descriptor
+ * @param stdout_fd - stdout file descriptor
+ * @param spec - Command spec
+ * @return Allocated thread_args_t (caller must NOT free - thread will free)
+ */
+thread_args_t* thread_args_create(
+    int argc,
+    char **argv,
+    int stdin_fd,
+    int stdout_fd,
+    const cmd_spec_t *spec
+);
+
+/*
+ * Free thread args structure
+ * Called by thread before exiting
+ * 
+ * @param args - Thread args to free
+ */
+void thread_args_free(thread_args_t *args);
+
+#endif /* THREAD_EXEC_H */
+File: src/thread_exec.c:
+c#include "thread_exec.h"
+#include "picobox.h"
+#include <stdlib.h>
+#include <string.h>
+#include <unistd.h>
+#include <stdio.h>
+
+/*
+ * Thread entry point for built-in command execution
+ * 
+ * This function runs in a SEPARATE THREAD within the SAME PROCESS.
+ * Key differences from fork/exec:
+ * - Shares address space with parent (same memory)
+ * - Shares file descriptors (pipes work!)
+ * - Has own stack
+ * - MUST use pthread_exit(), NOT exit()
+ * 
+ * Algorithm:
+ * 1. Redirect stdin/stdout using dup2()
+ * 2. Call built-in command function directly
+ * 3. Flush output buffers
+ * 4. Free thread-private memory
+ * 5. Exit thread with status
+ */
+void* thread_execute_builtin(void *arg)
+{
+    thread_args_t *targs = (thread_args_t *)arg;
+    int status;
+    
+    /* Redirect stdin if needed */
+    if (targs->stdin_fd != -1 && targs->stdin_fd != STDIN_FILENO) {
+        if (dup2(targs->stdin_fd, STDIN_FILENO) < 0) {
+            perror("thread: dup2 stdin");
+            status = EXIT_ERROR;
+            goto cleanup;
+        }
+        close(targs->stdin_fd);
+    }
+    
+    /* Redirect stdout if needed */
+    if (targs->stdout_fd != -1 && targs->stdout_fd != STDOUT_FILENO) {
+        if (dup2(targs->stdout_fd, STDOUT_FILENO) < 0) {
+            perror("thread: dup2 stdout");
+            status = EXIT_ERROR;
+            goto cleanup;
+        }
+        close(targs->stdout_fd);
+    }
+    
+    /* Execute the built-in command function directly */
+    status = targs->spec->run(targs->argc, targs->argv);
+    
+    /* Flush output streams (CRITICAL for threads!) */
+    fflush(stdout);
+    fflush(stderr);
+    
+cleanup:
+    /* Free thread-private memory */
+    thread_args_free(targs);
+    
+    /* Exit thread with status (pthread_join can retrieve this) */
+    pthread_exit((void *)(long)status);
+    
+    return NULL;  /* Never reached, but makes compiler happy */
+}
+
+/*
+ * Create thread args structure
+ * Makes COPIES of argv so thread has private data
+ */
+thread_args_t* thread_args_create(
+    int argc,
+    char **argv,
+    int stdin_fd,
+    int stdout_fd,
+    const cmd_spec_t *spec)
+{
+    thread_args_t *args = malloc(sizeof(thread_args_t));
+    if (!args) {
+        perror("malloc");
+        return NULL;
+    }
+    
+    args->argc = argc;
+    args->spec = spec;
+    args->stdin_fd = stdin_fd;
+    args->stdout_fd = stdout_fd;
+    args->exit_status = 0;
+    
+    /* Allocate argv array */
+    args->argv = malloc((argc + 1) * sizeof(char *));
+    if (!args->argv) {
+        perror("malloc");
+        free(args);
+        return NULL;
+    }
+    
+    /* Copy each argument string */
+    for (int i = 0; i < argc; i++) {
+        args->argv[i] = strdup(argv[i]);
+        if (!args->argv[i]) {
+            perror("strdup");
+            /* Cleanup on error */
+            for (int j = 0; j < i; j++) {
+                free(args->argv[j]);
+            }
+            free(args->argv);
+            free(args);
+            return NULL;
+        }
+    }
+    args->argv[argc] = NULL;
+    
+    return args;
+}
+
+/*
+ * Free thread args structure
+ */
+void thread_args_free(thread_args_t *args)
+{
+    if (!args) return;
+    
+    /* Free argv copies */
+    if (args->argv) {
+        for (int i = 0; i < args->argc; i++) {
+            free(args->argv[i]);
+        }
+        free(args->argv);
+    }
+    
+    free(args);
+}
+Update Makefile:
+makefile# Add to SRCS
+SRCS += src/thread_exec.c
+
+# Add pthread flag
+LDFLAGS += -pthread
+Compile & Test:
+bashmake clean && make
+# Should compile successfully
+Test Checklist:
+
+ Compiles without errors
+ Compiles without warnings
+ Links successfully (pthread library)
+
+
+Step 2.3: Modify visitPipeline() for Thread Support
+Task: Update visitPipeline() to use threads for built-in commands
+IMPORTANT: This is the most complex change. Read the entire modification carefully before implementing.
+File: src/bnfc/Skeleton.c (add include at top):
+c#include "thread_exec.h"
+File: src/bnfc/Skeleton.c (REPLACE entire visitPipeline function):
+c/*
+ * Visit Pipeline - THREAD-AWARE VERSION
+ *
+ * This function creates a pipeline of commands.
+ * For BUILT-IN commands: Uses pthreads
+ * For EXTERNAL commands: Uses fork/exec
+ * 
+ * Pipes connect commands regardless of thread vs process.
+ * 
+ * Algorithm:
+ * 1. Count commands in pipeline
+ * 2. For each command:
+ *    a. Create pipe (except for last)
+ *    b. Build argv for this command
+ *    c. Detect if built-in or external
+ *    d. If built-in: pthread_create()
+ *    e. If external: fork/exec
+ * 3. Close all pipes in parent
+ * 4. Wait for all threads (pthread_join)
+ * 5. Wait for all processes (waitpid)
+ */
+void visitPipeline(Pipeline p, ExecContext *ctx)
+{
+    switch(p->kind)
+    {
+    case is_PipeLine:
+    {
+        /* Count commands in pipeline */
+        int cmd_count = 0;
+        ListSimpleCommand temp = p->u.pipeLine_.listsimplecommand_;
+        while (temp) {
+            cmd_count++;
+            temp = temp->listsimplecommand_;
+        }
+
+        /* Set pipeline context */
+        ctx->in_pipeline = 1;
+        ctx->pipeline_total = cmd_count;
+        ctx->prev_pipe[0] = -1;
+        ctx->prev_pipe[1] = -1;
+
+        /* Ensure PIDs and threads arrays are large enough */
+        if (ctx->pid_count + cmd_count > ctx->pid_capacity) {
+            ctx->pid_capacity = ctx->pid_count + cmd_count;
+            ctx->pids = realloc(ctx->pids, ctx->pid_capacity * sizeof(pid_t));
+            if (!ctx->pids) {
+                perror("realloc pids");
+                ctx->has_error = 1;
+                break;
+            }
+        }
+        
+        if (ctx->thread_count + cmd_count > ctx->thread_capacity) {
+            ctx->thread_capacity = ctx->thread_count + cmd_count;
+            ctx->threads = realloc(ctx->threads, 
+                                  ctx->thread_capacity * sizeof(pthread_t));
+            if (!ctx->threads) {
+                perror("realloc threads");
+                ctx->has_error = 1;
+                break;
+            }
+        }
+
+        /* Execute each command in pipeline */
+        ListSimpleCommand sc_list = p->u.pipeLine_.listsimplecommand_;
+        int position = 0;
+        int last_was_thread = 0;
+
+        while (sc_list) {
+            ctx->pipeline_position = position;
+
+            /* Create pipe for all except last command */
+            if (position < cmd_count - 1) {
+                if (pipe(ctx->curr_pipe) < 0) {
+                    perror("pipe");
+                    ctx->has_error = 1;
+                    break;
+                }
+            } else {
+                ctx->curr_pipe[0] = -1;
+                ctx->curr_pipe[1] = -1;
+            }
+            
+            /* Build argv for this command */
+            exec_context_reset_command(ctx);
+            
+            /* Visit word nodes to build argv */
+            visitWord(sc_list->simplecommand_->u.cmd_.word_, ctx);
+            visitListWord(sc_list->simplecommand_->u.cmd_.listword_, ctx);
+            
+            /* NULL-terminate argv */
+            if (ctx->argc < ctx->argv_capacity) {
+                ctx->argv[ctx->argc] = NULL;
+            }
+            
+            if (ctx->argc == 0) {
+                fprintf(stderr, "Empty command in pipeline\n");
+                ctx->has_error = 1;
+                break;
+            }
+            
+            /* Detect if built-in or external */
+            const cmd_spec_t *spec = find_command(ctx->argv[0]);
+            int is_builtin = (spec != NULL);
+            
+            if (is_builtin) {
+                /* === USE THREAD for built-in === */
+                
+                /* Determine stdin fd for thread */
+                int thread_stdin_fd = -1;
+                if (ctx->prev_pipe[0] != -1) {
+                    thread_stdin_fd = ctx->prev_pipe[0];
+                }
+                
+                /* Determine stdout fd for thread */
+                int thread_stdout_fd = -1;
+                if (ctx->curr_pipe[1] != -1) {
+                    thread_stdout_fd = ctx->curr_pipe[1];
+                }
+                
+                /* Create thread arguments */
+                thread_args_t *targs = thread_args_create(
+                    ctx->argc,
+                    ctx->argv,
+                    thread_stdin_fd,
+                    thread_stdout_fd,
+                    spec
+                );
+                
+                if (!targs) {
+                    fprintf(stderr, "Failed to create thread args\n");
+                    ctx->has_error = 1;
+                    break;
+                }
+                
+                /* Create thread */
+                pthread_t tid;
+                if (pthread_create(&tid, NULL, thread_execute_builtin, targs) != 0) {
+                    perror("pthread_create");
+                    thread_args_free(targs);
+                    ctx->has_error = 1;
+                    break;
+                }
+                
+                /* Save thread ID */
+                ctx->threads[ctx->thread_count++] = tid;
+                last_was_thread = 1;
+                
+                /* Close previous pipe in parent thread
+                 * (thread has its own copy of the fd) */
+                if (ctx->prev_pipe[0] != -1) {
+                    close(ctx->prev_pipe[0]);
+                    close(ctx->prev_pipe[1]);
+                }
+                
+            } else {
+                /* === USE FORK/EXEC for external command === */
+                
+                pid_t pid = fork();
+                
+                if (pid < 0) {
+                    perror("fork");
+                    ctx->has_error = 1;
+                    break;
+                }
+                
+                if (pid == 0) {
+                    /* === CHILD PROCESS === */
+                    
+                    /* Connect stdin to previous pipe */
+                    if (ctx->prev_pipe[0] != -1) {
+                        dup2(ctx->prev_pipe[0], STDIN_FILENO);
+                        close(ctx->prev_pipe[0]);
+                        close(ctx->prev_pipe[1]);
+                    }
+                    
+                    /* Connect stdout to current pipe */
+                    if (ctx->curr_pipe[1] != -1) {
+                        dup2(ctx->curr_pipe[1], STDOUT_FILENO);
+                        close(ctx->curr_pipe[0]);
+                        close(ctx->curr_pipe[1]);
+                    }
+                    
+                    /* Execute external command */
+                    execvp(ctx->argv[0], ctx->argv);
+                    perror(ctx->argv[0]);
+                    _exit(127);
+                }
+                
+                /* === PARENT PROCESS === */
+                
+                /* Save PID */
+                ctx->pids[ctx->pid_count++] = pid;
+                last_was_thread = 0;
+                
+                /* Close previous pipe in parent */
+                if (ctx->prev_pipe[0] != -1) {
+                    close(ctx->prev_pipe[0]);
+                    close(ctx->prev_pipe[1]);
+                }
+            }
+            
+            /* Current pipe becomes previous for next iteration */
+            ctx->prev_pipe[0] = ctx->curr_pipe[0];
+            ctx->prev_pipe[1] = ctx->curr_pipe[1];
+            
+            /* Move to next command */
+            sc_list = sc_list->listsimplecommand_;
+            position++;
+        }
+
+        /* Close last pipe in parent */
+        if (ctx->prev_pipe[0] != -1) {
+            close(ctx->prev_pipe[0]);
+            close(ctx->prev_pipe[1]);
+        }
+
+        /* Wait for all threads */
+        for (int i = 0; i < ctx->thread_count; i++) {
+            void *thread_status;
+            if (pthread_join(ctx->threads[i], &thread_status) != 0) {
+                perror("pthread_join");
+            } else {
+                /* Last thread's status might be pipeline status */
+                if (i == ctx->thread_count - 1 && last_was_thread) {
+                    ctx->exit_status = (int)(long)thread_status;
+                }
+            }
+        }
+        
+        /* Wait for all child processes */
+        for (int i = 0; i < ctx->pid_count; i++) {
+            int status;
+            if (waitpid(ctx->pids[i], &status, 0) >= 0) {
+                /* Last process status might be pipeline status */
+                if (i == ctx->pid_count - 1 && !last_was_thread) {
+                    if (WIFEXITED(status))
+                        ctx->exit_status = WEXITSTATUS(status);
+                    else if (WIFSIGNALED(status))
+                        ctx->exit_status = 128 + WTERMSIG(status);
+                }
+            }
+        }
+
+        /* Reset pipeline state */
+        ctx->pid_count = 0;
+        ctx->thread_count = 0;
+        ctx->in_pipeline = 0;
+
+        break;
+    }
+
+    default:
+        fprintf(stderr, "Error: bad kind field when visiting Pipeline!\n");
+        exit(1);
+    }
+}
+Compile & Test:
+bashmake clean && make
+
+./picobox
+$ ls | wc -l
+<should print line count>
+
+$ cat /etc/hosts | head -n 5
+<should print first 5 lines>
+
+$ pwd | cat
+<should print current directory>
+
+$ exit
+Test Checklist:
+
+ Simple pipeline works: ls | wc
+ All built-in: pwd | cat | head
+ Mixed: /bin/ls | wc | cat
+ Long pipeline: ls | head | cat | wc
+ No deadlocks
+ No memory leaks (valgrind)
+ Output is correct (not corrupted)
+
+
+PHASE 3: COMPREHENSIVE TESTING
+Step 3.1: Create Test Scripts
+Create: tests/test_all.sh
+bash#!/bin/bash
+
+echo "======================================"
+echo "PICOBOX SHELL TEST SUITE"
+echo "======================================"
+
+TESTS_PASSED=0
+TESTS_FAILED=0
+
+# Function to run a test
+run_test() {
+    local test_name="$1"
+    local test_cmd="$2"
+    local expected="$3"
+    
+    echo -n "Testing: $test_name... "
+    
+    # Run test
+    result=$(echo "$test_cmd" | ./picobox 2>&1)
+    
+    if [[ "$result" == *"$expected"* ]]; then
+        echo "PASS"
+        ((TESTS_PASSED++))
+    else
+        echo "FAIL"
+        echo "  Expected: $expected"
+        echo "  Got: $result"
+        ((TESTS_FAILED++))
+    fi
+}
+
+echo ""
+echo "=== VARIABLE TESTS ==="
+
+run_test "Simple assignment" "myvar=hello; echo \$myvar" "hello"
+run_test "Reassignment" "var=1; var=2; echo \$var" "2"
+run_test "Environment var" "echo \$HOME" "$HOME"
+run_test "Special var $$" "echo \$\$" "[0-9]"
+run_test "Undefined var" "echo \$NOTEXIST" ""
+run_test "Export" "export TEST=value; echo \$TEST" "value"
+
+echo ""
+echo "=== THREAD PIPELINE TESTS ==="
+
+run_test "Built-in pipeline" "ls | wc -l" "[0-9]"
+run_test "Mixed pipeline" "/bin/echo test | cat" "test"
+run_test "Long pipeline" "echo hello | cat | cat | cat" "hello"
+
+echo ""
+echo "======================================"
+echo "RESULTS: $TESTS_PASSED passed, $TESTS_FAILED failed"
+echo "======================================"
+
+if [ $TESTS_FAILED -eq 0 ]; then
+    exit 0
+else
+    exit 1
+fi
+Make executable:
+bashchmod +x tests/test_all.sh
+Run tests:
+bash./tests/test_all.sh
+
+Step 3.2: Memory Leak Testing
+Create: tests/test_leaks.sh
+bash#!/bin/bash
+
+echo "Running memory leak tests with valgrind..."
+
+# Test 1: Variable operations
+echo "Test 1: Variable operations"
+valgrind --leak-check=full --error-exitcode=1 \
+    ./picobox <<EOF
+myvar=test
+echo \$myvar
+export myvar
 exit
 EOF
 
-# Expected output:
-# LEAK SUMMARY:
-#    definitely lost: 0 bytes in 0 blocks
-#    indirectly lost: 0 bytes in 0 blocks
-#    possibly lost: 0 bytes in 0 blocks
-```
-
-**Common Memory Leaks to Avoid**:
-
-```c
-// LEAK 1: Not freeing argv
-char **argv = words_to_argv(...);
-// ... use argv ...
-free_argv(argv);  // DON'T FORGET!
-
-// LEAK 2: Not freeing AST
-Input ast = psInput(line);
-// ... use ast ...
-free_Input(ast);  // DON'T FORGET!
-
-// LEAK 3: Not closing pipe
-FILE *fp = popen(cmd, "r");
-// ... use fp ...
-pclose(fp);  // DON'T FORGET!
-
-// LEAK 4: Not freeing context
-ExecContext *ctx = exec_context_new();
-// ... use ctx ...
-exec_context_free(ctx);  // DON'T FORGET!
-```
-
-### **Input Validation**
-
-**RULE: Never trust external input. Validate everything.**
-
-```c
-static void handle_llm_query(const char *query) {
-    /* ============ VALIDATION BLOCK ============ */
-    
-    // Check 1: Null pointer
-    if (!query) {
-        fprintf(stderr, "Error: NULL query\n");
-        return;
-    }
-    
-    // Check 2: Empty string
-    if (query[0] == '\0') {
-        fprintf(stderr, "Error: Empty query\n");
-        return;
-    }
-    
-    // Check 3: Length limit
-    if (strlen(query) > MAX_QUERY_LENGTH) {
-        fprintf(stderr, "Error: Query too long (max %d chars)\n", 
-                MAX_QUERY_LENGTH);
-        return;
-    }
-    
-    // Check 4: No dangerous characters (basic)
-    if (strchr(query, '\n') || strchr(query, '\r')) {
-        fprintf(stderr, "Error: Query contains newline\n");
-        return;
-    }
-    
-    /* ========================================== */
-    
-    // Now safe to process query
-    // ...
-}
-```
-
-**Testing Input Validation**:
-
-```bash
-# Test empty query
-./picobox
-$ @
-Error: Empty query
-$ 
-
-# Test very long query
-./picobox
-$ @$(python3 -c "print('a'*10000)")
-Error: Query too long
-$ 
-
-# Test query with newline
-./picobox
-$ @list$(echo -e '\n')files
-Error: Query contains newline
-$ 
-```
-
----
-
-## 🧪 **TESTING METHODOLOGY**
-
-### **Test Levels**
-
-For each change, run tests in this order:
-
-#### **Level 1: Compilation Test**
-
-```bash
-# ALWAYS test compilation first
-make clean
-make 2>&1 | tee compile.log
-
-# Check for warnings
-grep -i warning compile.log
-# Should be empty or only acceptable warnings
-
-# Check exit code
-echo $?
-# Should be 0
-```
-
-**DO NOT PROCEED if compilation fails or has warnings.**
-
-#### **Level 2: Unit Test**
-
-Test the specific function you just wrote:
-
-```bash
-# For print_commands_json()
-./picobox --commands-json | python3 -m json.tool > /dev/null
-echo $?  # Should be 0
-
-# For mysh_llm.py standalone
-python3 mysh_llm.py "list files"
-# Should print one line
-
-# For handle_llm_query() (manual)
-./picobox
-$ @list files
-# Should show suggestion
-```
-
-**DO NOT PROCEED if unit test fails.**
-
-#### **Level 3: Integration Test**
-
-Test interactions between components:
-
-```bash
-# Test: Shell calls Python
-$ @list files
-n
-# Should see suggestion
-
-# Test: Python calls shell
-python3 mysh_llm.py "test"
-# Should see command
-
-# Test: Suggestion parsed by BNFC
-$ @list files
-y
-# Should execute successfully
-```
-
-**DO NOT PROCEED if integration fails.**
-
-#### **Level 4: Regression Test**
-
-Ensure nothing broke:
-
-```bash
-# Test normal commands
-$ ls
-$ cat file.txt
-$ echo test | grep test
-$ exit
-
-# Test legacy AI
-$ AI how do I list files
-$ exit
-
-# Test pipelines
-$ cat file | wc -l
-$ exit
-
-# Test redirections
-$ echo test > file
-$ cat < file
-$ exit
-```
-
-**DO NOT PROCEED if any regression test fails.**
-
-#### **Level 5: System Test**
-
-Test complete workflows:
-
-```bash
-# Workflow 1: Happy path
-$ @show all files
-y
-# Files listed
-
-# Workflow 2: Cancel
-$ @find C files
-n
-# Cancelled
-
-# Workflow 3: Error recovery
-$ @invalid query
-# (suggestion might be weird)
-n
-$ ls  # Shell still works
-```
-
-### **Test Automation**
-
-Create test script that runs after every change:
-
-**File**: `quick_test.sh`
-
-```bash
-#!/bin/bash
-# Quick smoke tests - run after every change
-
-set -e
-trap 'echo "❌ Test failed at line $LINENO"' ERR
-
-echo "=== Quick Test Suite ==="
-
-# Test 1: Compilation
-echo "[1/5] Compilation..."
-make clean > /dev/null 2>&1
-make > /dev/null 2>&1
-echo "  ✓ Compiled"
-
-# Test 2: JSON output
-echo "[2/5] JSON output..."
-./picobox --commands-json | python3 -m json.tool > /dev/null
-echo "  ✓ JSON valid"
-
-# Test 3: Python script
-echo "[3/5] Python script..."
-export MYSH_PATH=./picobox
-export MYSH_CATALOG_CMD='./picobox --commands-json'
-unset OPENAI_API_KEY
-OUTPUT=$(python3 mysh_llm.py "list files")
-[ -n "$OUTPUT" ] || exit 1
-echo "  ✓ Script works"
-
-# Test 4: Shell integration
-echo "[4/5] Shell @ detection..."
-OUTPUT=$(echo -e "@list files\nn\nexit" | ./picobox 2>&1 | grep "Suggested")
-[ -n "$OUTPUT" ] || exit 1
-echo "  ✓ @ detection works"
-
-# Test 5: Normal commands
-echo "[5/5] Regression..."
-OUTPUT=$(echo -e "echo test\nexit" | ./picobox 2>&1 | grep "test")
-[ -n "$OUTPUT" ] || exit 1
-echo "  ✓ Normal commands work"
-
-echo ""
-echo "✅ All quick tests passed"
-```
-
-**Usage**:
-
-```bash
-chmod +x quick_test.sh
-
-# After EVERY change
-nano main.c
-make
-./quick_test.sh
-
-# If all pass
-git add main.c
-git commit -m "Add feature X"
-```
-
----
-
-## 📝 **DOCUMENTATION STANDARDS**
-
-### **Function Documentation Template**
-
-```c
-/*
- * <Function Name> - <One-line description>
- * 
- * <Detailed description explaining what the function does,
- * why it exists, and any important implementation details.>
- *
- * Parameters:
- *   param1 - Description of first parameter
- *   param2 - Description of second parameter
- * 
- * Returns:
- *   Description of return value
- *   - 0 on success
- *   - -1 on error (check errno)
- * 
- * Side Effects:
- *   - Modifies global variable X
- *   - Allocates memory that caller must free
- *   - Calls external program Y
- * 
- * Notes:
- *   - This function is NOT thread-safe
- *   - Query must not contain newlines
- *   - Caller is responsible for freeing returned string
- * 
- * Example:
- *   char *result = function_name("input");
- *   if (result) {
- *       printf("%s\n", result);
- *       free(result);
- *   }
- */
-```
-
-**Example Application**:
-
-```c
-/*
- * get_ai_suggestion - Get command suggestion from AI helper
- * 
- * Calls the Python mysh_llm.py script with the given query
- * and returns the suggested command as a newly allocated string.
- * 
- * This function:
- * 1. Builds command to call Python script
- * 2. Executes via popen()
- * 3. Reads one line of output (the suggestion)
- * 4. Returns the suggestion
- * 
- * Parameters:
- *   query - Natural language query (must not contain newlines)
- * 
- * Returns:
- *   - Newly allocated string with suggestion (caller must free)
- *   - NULL on error (script not found, no output, etc.)
- * 
- * Side Effects:
- *   - Forks a child process to run Python script
- *   - Prints error messages to stderr on failure
- * 
- * Notes:
- *   - Query is NOT escaped; avoid special shell characters
- *   - Script path from MYSH_LLM_SCRIPT env var or default
- *   - Timeout is handled by popen (system-dependent)
- * 
- * Example:
- *   char *suggestion = get_ai_suggestion("list files");
- *   if (suggestion) {
- *       printf("Suggested: %s\n", suggestion);
- *       free(suggestion);
- *   } else {
- *       fprintf(stderr, "Failed to get suggestion\n");
- *   }
- */
-static char *get_ai_suggestion(const char *query)
-{
-    // Implementation...
-}
-```
-
-### **Inline Comments**
-
-**Explain WHY, not WHAT:**
-
-❌ **Bad Comments**:
-```c
-// Check if line starts with @
-if (line[0] == '@') {
-    // Call handler
-    handle_llm_query(line + 1);
-    // Continue to next iteration
-    continue;
-}
-```
-
-✅ **Good Comments**:
-```c
-/* Check for AI query BEFORE parsing.
- * 
- * We handle @ queries before calling psInput() because:
- * 1. The @ character is not in our grammar
- * 2. This keeps both AI systems independent
- * 3. Parsing would fail on @ otherwise
- */
-if (line[0] == '@') {
-    handle_llm_query(line + 1);  // Skip @ character
-    continue;  // Don't parse with BNFC
-}
-```
-
-### **Commit Message Standards**
-
-Follow the **Conventional Commits** format:
-
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-**Types**:
-- `feat`: New feature
-- `fix`: Bug fix
-- `docs`: Documentation only
-- `style`: Formatting changes
-- `refactor`: Code restructuring
-- `test`: Adding tests
-- `chore`: Maintenance tasks
-
-**Examples**:
-
-```bash
-# Good commit message
-git commit -m "feat(ai): add @prefix detection in REPL loop
-
-- Check for @ before calling psInput()
-- Call handle_llm_query() with query text
-- Continue to next iteration (skip parser)
-
-This enables the new AI assistant feature while keeping
-the grammar unchanged. Both AI systems now coexist.
-
-Tested: @ detection, normal commands, legacy AI command
-"
-
-# Good commit message
-git commit -m "fix(json): escape quotes in command descriptions
-
-Command descriptions may contain quotes, which breaks JSON.
-Now properly escape \" and \\ characters before printing.
-
-Fixes: picobox --commands-json | python3 -m json.tool
-"
-
-# Good commit message
-git commit -m "test(ai): add automated test suite
-
-Create test_ai_integration.sh with 5 core tests:
-1. JSON validation
-2. Command count check
-3. Python script standalone
-4. Shell @ detection
-5. Regression testing
-
-All tests passing.
-"
-```
-
----
-
-## 🔧 **DEBUGGING BEST PRACTICES**
-
-### **Debugging Workflow**
-
-When something doesn't work:
-
-1. **Reproduce**: Can you make it fail consistently?
-2. **Isolate**: Which component is failing?
-3. **Simplify**: Remove complexity until it works
-4. **Instrument**: Add logging to understand state
-5. **Fix**: Make minimal change
-6. **Verify**: Test that fix works
-7. **Prevent**: Add test to catch regression
-
-### **Debugging Tools**
-
-#### **GDB (GNU Debugger)**
-
-```bash
-# Compile with debug symbols
-make CFLAGS="-g -O0"
-
-# Start GDB
-gdb ./picobox
-
-# Common commands
-(gdb) break handle_llm_query    # Set breakpoint
-(gdb) run                        # Start program
-$ @test                          # Trigger breakpoint
-(gdb) print query                # Inspect variable
-(gdb) next                       # Execute next line
-(gdb) step                       # Step into function
-(gdb) continue                   # Continue execution
-(gdb) backtrace                  # Show call stack
-(gdb) quit                       # Exit
-```
-
-#### **Printf Debugging**
-
-```c
-// Add debug macros
-#ifdef DEBUG
-#define DEBUG_PRINT(fmt, ...) \
-    fprintf(stderr, "[DEBUG] %s:%d: " fmt "\n", \
-            __FILE__, __LINE__, ##__VA_ARGS__)
-#else
-#define DEBUG_PRINT(fmt, ...) /* nothing */
-#endif
-
-// Use in code
-void handle_llm_query(const char *query) {
-    DEBUG_PRINT("Query: %s", query);
-    
-    char cmd[2048];
-    snprintf(cmd, sizeof(cmd), "python3 mysh_llm.py \"%s\"", query);
-    DEBUG_PRINT("Command: %s", cmd);
-    
-    FILE *fp = popen(cmd, "r");
-    DEBUG_PRINT("popen returned: %p", (void *)fp);
-    
-    // ... rest of function
-}
-
-// Compile with debug
-make CFLAGS="-DDEBUG -g"
-```
-
-#### **Valgrind**
-
-```bash
-# Check memory leaks
-valgrind --leak-check=full \
-         --show-leak-kinds=all \
-         --track-origins=yes \
-         --verbose \
-         --log-file=valgrind.log \
-         ./picobox
-
-# Check output
-less valgrind.log
-
-# Look for:
-# - "definitely lost": Real leaks (fix immediately)
-# - "indirectly lost": Usually from "definitely lost"
-# - "possibly lost": Might be false positive
-# - "still reachable": Usually okay (global allocations)
-```
-
-#### **Strace (System Call Trace)**
-
-```bash
-# Trace system calls
-strace -o trace.log ./picobox
-
-# Look at trace
-less trace.log
-
-# Common syscalls to check:
-# - open/close: File operations
-# - read/write: I/O operations
-# - fork/exec: Process creation
-# - pipe: Pipe creation
-# - dup2: File descriptor duplication
-```
-
-### **Common Bug Patterns**
-
-#### **Bug: Segmentation Fault**
-
-**Causes**:
-1. NULL pointer dereference
-2. Use after free
-3. Buffer overflow
-4. Stack overflow (deep recursion)
-
-**Debugging**:
-```bash
-# Get core dump
-ulimit -c unlimited
-./picobox
-# (crash)
-
-# Analyze core dump
-gdb ./picobox core
-(gdb) backtrace
-(gdb) frame 0
-(gdb) print variable_name
-```
-
-#### **Bug: Memory Leak**
-
-**Causes**:
-1. Forgetting to free
-2. Early return without cleanup
-3. Lost pointer (can't free)
-
-**Debugging**:
-```bash
-valgrind --leak-check=full ./picobox
-# Look for "definitely lost"
-# Note line numbers
-# Add free() calls
-```
-
-#### **Bug: Undefined Behavior**
-
-**Causes**:
-1. Uninitialized variables
-2. Out of bounds access
-3. Integer overflow
-4. Type punning
-
-**Prevention**:
-```bash
-# Compile with all warnings
-make CFLAGS="-Wall -Wextra -Werror -std=c11"
-
-# Use static analysis
-gcc -fanalyzer main.c
-
-# Use sanitizers
-make CFLAGS="-fsanitize=address -fsanitize=undefined"
-./picobox
-```
-
----
-
-## 🚀 **DEVELOPMENT WORKFLOW**
-
-### **Daily Workflow**
-
-```bash
-# 1. Start fresh
-git status  # Clean working directory
-git pull    # Get latest changes
-
-# 2. Create branch for feature
-git checkout -b feature/ai-integration
-
-# 3. Make small change
-nano main.c
-# (Add print_commands_json() function)
-
-# 4. Compile
-make clean
-make
-
-# 5. Test immediately
-./quick_test.sh
-
-# 6. If test passes, commit
-git add main.c
-git commit -m "feat(json): add print_commands_json"
-
-# 7. Continue with next change
-nano main.c
-# (Add --commands-json flag handler)
-make
-./quick_test.sh
-git add main.c
-git commit -m "feat(json): add --commands-json flag handler"
-
-# 8. Run full tests periodically
-./test_ai_integration.sh
-
-# 9. When feature complete, merge
-git checkout main
-git merge feature/ai-integration
-git branch -d feature/ai-integration
-```
-
-### **Incremental Development**
-
-**Build features in layers:**
-
-```
-Layer 1: Basic JSON output (hardcoded)
-  Test: picobox --commands-json
-  Commit: "feat(json): add basic JSON output"
-
-Layer 2: Real command iteration
-  Test: Count commands in JSON
-  Commit: "feat(json): iterate through command registry"
-
-Layer 3: Add detailed info
-  Test: Check fields in JSON
-  Commit: "feat(json): add summary and description"
-
-Layer 4: Handle edge cases
-  Test: Commands with NULL descriptions
-  Commit: "fix(json): handle NULL descriptions"
-```
-
-Each layer is:
-- Small enough to debug easily
-- Large enough to be meaningful
-- Independently testable
-- Immediately committable
-
----
-
-## ✅ **CODE REVIEW CHECKLIST**
-
-Before committing ANY code, verify:
-
-### **Correctness**
-
-- [ ] Code compiles without warnings
-- [ ] All tests pass
-- [ ] Logic is correct
-- [ ] Edge cases handled
-- [ ] Error cases handled
-
-### **Safety**
-
-- [ ] No buffer overflows
-- [ ] No NULL pointer dereferences
-- [ ] No memory leaks
-- [ ] No use-after-free
-- [ ] No uninitialized variables
-- [ ] Proper input validation
-
-### **Style**
-
-- [ ] Consistent indentation (4 spaces or tabs)
-- [ ] Function names are descriptive
-- [ ] Variable names are clear
-- [ ] Magic numbers replaced with constants
-- [ ] No code duplication
-
-### **Documentation**
-
-- [ ] Functions have header comments
-- [ ] Complex logic has inline comments
-- [ ] Commit message is descriptive
-- [ ] README updated if needed
-- [ ] CHANGELOG updated if needed
-
-### **Testing**
-
-- [ ] Unit tests written
-- [ ] Integration tests pass
-- [ ] Regression tests pass
-- [ ] Manual testing done
-- [ ] Test script updated
-
----
-
-## 🎓 **LEARNING FROM MISTAKES**
-
-### **Post-Mortem Template**
-
-When a bug is found in production:
-
-```markdown
-# Bug Post-Mortem: [Bug Title]
-
-## What Happened
-[Describe the bug and its impact]
-
-## Root Cause
-[What was the actual cause]
-
-## Timeline
-- [Time]: Bug introduced (which commit)
-- [Time]: Bug discovered (how)
-- [Time]: Bug fixed (which commit)
-
-## Why Wasn't It Caught?
-[Which tests should have caught it but didn't]
-
-## What We Learned
-[Lessons learned]
-
-## Action Items
-1. [Add test X to prevent recurrence]
-2. [Update documentation Y]
-3. [Refactor code Z]
-
-## Related Issues
-[Links to related bugs or discussions]
-```
-
-### **Common Mistakes to Avoid**
-
-1. **Not checking return values**
-   - Always check malloc, fopen, popen, etc.
-
-2. **Assuming input is valid**
-   - Always validate before use
-
-3. **Forgetting to free memory**
-   - Use valgrind regularly
-
-4. **Not testing edge cases**
-   - Empty input, very long input, special characters
-
-5. **Committing broken code**
-   - Always test before committing
-
-6. **Not documenting why**
-   - Comments explain why, not what
-
-7. **Making too many changes at once**
-   - Small commits are easier to debug
-
-8. **Not running regression tests**
-   - Always verify nothing broke
-
----
-
-## 🏆 **QUALITY METRICS**
-
-Track these metrics to ensure code quality:
-
-### **Compilation Metrics**
-
-```bash
-# Warning count (should be 0)
-make 2>&1 | grep -c warning
-
-# Error count (should be 0)
-make 2>&1 | grep -c error
-```
-
-### **Test Metrics**
-
-```bash
-# Test pass rate (should be 100%)
-./test_ai_integration.sh
-# All tests passed: 5/5 (100%)
-
-# Code coverage (aim for >80%)
-# (Requires instrumentation)
-```
-
-### **Code Quality Metrics**
-
-```bash
-# Lines of code
-wc -l *.c
-
-# Comment ratio (aim for >20%)
-# (comments / total lines)
-
-# Function length (aim for <50 lines per function)
-# (Use static analysis tool)
-
-# Cyclomatic complexity (aim for <10 per function)
-# (Use static analysis tool)
-```
-
-### **Memory Metrics**
-
-```bash
-# Memory leaks (should be 0)
-valgrind --leak-check=full ./picobox 2>&1 | \
-    grep "definitely lost:" | \
-    grep -o "[0-9,]* bytes"
-
-# Heap usage (monitor trends)
-valgrind --tool=massif ./picobox
-ms_print massif.out.* | less
-```
-
----
-
-## 📚 **RESOURCES & REFERENCES**
-
-### **C Programming**
-
-- **Book**: "The C Programming Language" (K&R)
-- **Style Guide**: Linux Kernel Coding Style
-- **Best Practices**: CERT C Coding Standard
-
-### **Testing**
-
-- **Book**: "Test Driven Development" (Kent Beck)
-- **Tool**: Valgrind User Manual
-- **Practice**: Google Test C++ (for inspiration)
-
-### **Git**
-
-- **Guide**: "Pro Git" book (free online)
-- **Standard**: Conventional Commits spec
-- **Practice**: GitHub flow
-
-### **Debugging**
-
-- **Book**: "The Art of Debugging with GDB"
-- **Guide**: GDB Tutorial
-- **Tool**: rr (Record and Replay)
-
----
-
-## 🎯 **SUCCESS CRITERIA**
-
-You've achieved professional-quality code when:
-
-✅ **Code compiles with `-Wall -Wextra -Werror`**
-✅ **Valgrind reports zero leaks**
-✅ **All tests pass automatically**
-✅ **Code review checklist is satisfied**
-✅ **Another developer can understand your code**
-✅ **Documentation explains why decisions were made**
-✅ **Git history tells a clear story**
-✅ **You're proud to show this code to your professor**
-
----
-
-## 💪 **COMMITMENT**
-
-As a professional programmer, I commit to:
-
-1. **Test after EVERY change** (even "small" ones)
-2. **Commit only working code** (tests must pass)
-3. **Document as I go** (not "later")
-4. **Review my own code** (before committing)
-5. **Fix warnings immediately** (not "eventually")
-6. **Learn from mistakes** (write post-mortems)
-7. **Help future maintainers** (including future me)
-
----
-
-**Remember**: Professional code is code that works, is maintainable, and makes the next person's job easier. Take pride in your craft. Test thoroughly. Document clearly. Commit responsibly.
-
-**"Any fool can write code that a computer can understand. Good programmers write code that humans can understand."** - Martin Fowler
+# Test 2: Pipelines
+echo "Test 2: Pipelines"
+valgrind --leak-check=full --error-exitcode=1 \
+    ./picobox <<EOF
+ls | wc
+cat /etc/hosts | head
+exit
+EOF
+
+echo "Memory tests complete!"
+Make executable and run:
+bashchmod +x tests/test_leaks.sh
+./tests/test_leaks.sh
+
+Step 3.3: Stress Testing
+Create: tests/test_stress.sh
+bash#!/bin/bash
+
+echo "Running stress tests..."
+
+# Test 1: Many variables
+echo "Test 1: Creating 1000 variables"
+./picobox <<EOF
+$(for i in {1..1000}; do echo "var$i=value$i"; done)
+echo \$var1000
+exit
+EOF
+
+# Test 2: Many pipelines
+echo "Test 2: Running 100 pipelines"
+./picobox <<EOF
+$(for i in {1..100}; do echo "echo test | cat | wc"; done)
+exit
+EOF
+
+# Test 3: Long pipeline
+echo "Test 3: Long pipeline (10 stages)"
+./picobox <<EOF
+echo test | cat | cat | cat | cat | cat | cat | cat | cat | cat
+exit
+EOF
+
+echo "Stress tests complete!"
+Make executable and run:
+bashchmod +x tests/test_stress.sh
+./tests/test_stress.sh
+
+FINAL CHECKLIST
+Code Quality:
+
+ All files compile without warnings
+ All functions have header comments
+ All mallocs have corresponding frees
+ All file descriptors are closed
+ No global mutable state (except command registry)
+ Error messages are clear and helpful
+
+Functionality:
+
+ Shell variables work (set and get)
+ Environment variables work (export)
+ Variable expansion works ($VAR)
+ Special variables work ($$, $?, $0)
+ Thread-based pipelines work
+ Mixed pipelines work (threads + processes)
+ Long pipelines work (5+ stages)
+
+Testing:
+
+ All test scripts pass
+ Valgrind shows no leaks
+ Valgrind shows no errors
+ Stress tests pass
+ No deadlocks in pipelines
+
+Documentation:
+
+ README.md updated
+ CHANGELOG.md updated
+ Code comments are clear
+
+
+CONGRATULATIONS! If all checkboxes are checked, implementation is complete.Claude is AI and can make mistakes. Please double-check responses. Sonnet 4.5Claude is AI and can make mistakes. Please double-check responses.

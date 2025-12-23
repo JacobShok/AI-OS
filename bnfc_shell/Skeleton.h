@@ -4,8 +4,11 @@
 #define SKELETON_HEADER
 /* You might want to change the above name. */
 
+#include <pthread.h>
+#include <sys/types.h>
 #include "Absyn.h"
 #include "../include/redirect_helpers.h"
+#include "../include/var_table.h"
 
 /*
  * Execution Context - holds state during AST traversal
@@ -43,6 +46,15 @@ typedef struct exec_context {
     int exit_status;       /* Last command exit status */
     int should_exit;       /* Set to 1 if shell should exit */
     int has_error;         /* Flag for errors during tree walk */
+
+    /* Shell-local variables */
+    var_table_t *shell_vars;
+
+    /* Thread tracking for built-in pipelines */
+    pthread_t *threads;
+    int thread_count;
+    int thread_capacity;
+    int using_threads;
 } ExecContext;
 
 /* Context management functions */
@@ -54,6 +66,7 @@ void exec_context_reset_command(ExecContext *ctx);
 void visitInput(Input p, ExecContext *ctx);
 void visitCommand(Command p, ExecContext *ctx);
 void visitAICommand(ListWord p, ExecContext *ctx);
+void visitAIStringCommand(StringLiteral str_literal, ExecContext *ctx);
 void visitPipeline(Pipeline p, ExecContext *ctx);
 void visitSimpleCommand(SimpleCommand p, ExecContext *ctx);
 void visitRedirection(Redirection p, ExecContext *ctx);
@@ -70,4 +83,3 @@ void visitChar(Char c, ExecContext *ctx);
 void visitString(String s, ExecContext *ctx);
 
 #endif
-

@@ -19,7 +19,7 @@ int cmd_echo(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("echo");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "echo: command not found in registry\n");
     return EXIT_ERROR;
@@ -32,7 +32,7 @@ int cmd_pwd(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("pwd");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "pwd: command not found in registry\n");
     return EXIT_ERROR;
@@ -45,7 +45,7 @@ int cmd_true(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("true");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "true: command not found in registry\n");
     return EXIT_ERROR;
@@ -58,7 +58,7 @@ int cmd_false(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("false");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "false: command not found in registry\n");
     return EXIT_ERROR;
@@ -71,7 +71,7 @@ int cmd_basename(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("basename");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "basename: command not found in registry\n");
     return EXIT_ERROR;
@@ -84,7 +84,7 @@ int cmd_dirname(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("dirname");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "dirname: command not found in registry\n");
     return EXIT_ERROR;
@@ -97,7 +97,7 @@ int cmd_sleep(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("sleep");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "sleep: command not found in registry\n");
     return EXIT_ERROR;
@@ -110,7 +110,7 @@ int cmd_env(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("env");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "env: command not found in registry\n");
     return EXIT_ERROR;
@@ -123,7 +123,7 @@ int cmd_cat(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("cat");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "cat: command not found in registry\n");
     return EXIT_ERROR;
@@ -136,7 +136,7 @@ int cmd_wc(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("wc");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "wc: command not found in registry\n");
     return EXIT_ERROR;
@@ -149,7 +149,7 @@ int cmd_head(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("head");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "head: command not found in registry\n");
     return EXIT_ERROR;
@@ -162,7 +162,7 @@ int cmd_tail(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("tail");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "tail: command not found in registry\n");
     return EXIT_ERROR;
@@ -175,7 +175,7 @@ int cmd_touch(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("touch");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "touch: command not found in registry\n");
     return EXIT_ERROR;
@@ -188,7 +188,7 @@ int cmd_mkdir(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("mkdir");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "mkdir: command not found in registry\n");
     return EXIT_ERROR;
@@ -201,7 +201,7 @@ int cmd_cp(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("cp");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "cp: command not found in registry\n");
     return EXIT_ERROR;
@@ -214,7 +214,7 @@ int cmd_mv(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("mv");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "mv: command not found in registry\n");
     return EXIT_ERROR;
@@ -227,7 +227,7 @@ int cmd_rm(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("rm");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "rm: command not found in registry\n");
     return EXIT_ERROR;
@@ -240,7 +240,7 @@ int cmd_ln(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("ln");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "ln: command not found in registry\n");
     return EXIT_ERROR;
@@ -253,7 +253,7 @@ int cmd_chmod(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("chmod");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "chmod: command not found in registry\n");
     return EXIT_ERROR;
@@ -266,7 +266,7 @@ int cmd_stat(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("stat");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "stat: command not found in registry\n");
     return EXIT_ERROR;
@@ -279,7 +279,7 @@ int cmd_df(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("df");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "df: command not found in registry\n");
     return EXIT_ERROR;
@@ -292,7 +292,7 @@ int cmd_du(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("du");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "du: command not found in registry\n");
     return EXIT_ERROR;
@@ -305,7 +305,7 @@ int cmd_grep(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("grep");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "grep: command not found in registry\n");
     return EXIT_ERROR;
@@ -318,7 +318,7 @@ int cmd_find(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("find");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "find: command not found in registry\n");
     return EXIT_ERROR;
@@ -331,7 +331,7 @@ int cmd_ls(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("ls");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "ls: command not found in registry\n");
     return EXIT_ERROR;
@@ -344,7 +344,7 @@ int cmd_pkg(int argc, char **argv)
 {
     const cmd_spec_t *spec = find_command("pkg");
     if (spec) {
-        return spec->run(argc, argv);
+        return spec->run(argc, argv, stdin, stdout);
     }
     fprintf(stderr, "pkg: command not found in registry\n");
     return EXIT_ERROR;

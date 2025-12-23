@@ -17,7 +17,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int cat_run(int argc, char **argv);
+int cat_run(int argc, char **argv, FILE *in, FILE *out);
 void cat_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -103,8 +103,10 @@ static int cat_file(const char *filename, int number_lines, int *line_number)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int cat_run(int argc, char **argv)
+int cat_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int number_lines;
     int line_number = 1;
@@ -195,6 +197,6 @@ void register_cat_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_cat_spec.run(argc, argv);
+    return cmd_cat_spec.run(argc, argv, stdin, stdout);
 }
 #endif

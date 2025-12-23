@@ -129,13 +129,14 @@ extern int yylex(YYSTYPE *lvalp, YYLTYPE *llocp, yyscan_t scanner);
 %}
 
 %token          _ERROR_
-%token          _SEMI    /* ; */
-%token          _LT      /* < */
-%token          _GT      /* > */
-%token          _DGT     /* >> */
-%token          _KW_AI   /* AI */
-%token          _BAR     /* | */
-%token<_string> T_Word   /* Word */
+%token          _SEMI            /* ; */
+%token          _LT              /* < */
+%token          _GT              /* > */
+%token          _DGT             /* >> */
+%token          _KW_AI           /* AI */
+%token          _BAR             /* | */
+%token<_string> T_StringLiteral  /* StringLiteral */
+%token<_string> T_Word           /* Word */
 
 %type <input_> Input
 %type <command_> Command
@@ -156,6 +157,7 @@ Input : ListCommand { $$ = make_StartInput($1); result->input_ = $$; }
 Command : SimpleCommand { $$ = make_SimpleCmd($1); }
   | Pipeline { $$ = make_PipeCmd($1); }
   | _KW_AI ListWord { $$ = make_AICmd($2); }
+  | _KW_AI T_StringLiteral { $$ = make_AIString($2); }
 ;
 Pipeline : ListSimpleCommand { $$ = make_PipeLine($1); }
 ;

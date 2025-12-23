@@ -8,6 +8,7 @@
  *   3. Updates the execution context
  */
 
+#include <ctype.h>
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
@@ -20,6 +21,7 @@
 #include "../include/exec_helpers.h"
 #include "../include/pipe_helpers.h"
 #include "../include/cmd_spec.h"
+#include "../include/thread_exec.h"
 
 /*
  * Create a new execution context
@@ -71,6 +73,28 @@ ExecContext *exec_context_new(void)
     ctx->should_exit = 0;
     ctx->has_error = 0;
 
+    ctx->shell_vars = var_table_create(128);
+    if (!ctx->shell_vars) {
+        fprintf(stderr, "Failed to initialize shell variable table\n");
+        free(ctx->pids);
+        free(ctx->argv);
+        free(ctx);
+        return NULL;
+    }
+
+    ctx->thread_capacity = 8;
+    ctx->threads = malloc(ctx->thread_capacity * sizeof(pthread_t));
+    if (!ctx->threads) {
+        fprintf(stderr, "Failed to allocate thread tracking array\n");
+        var_table_destroy(ctx->shell_vars);
+        free(ctx->pids);
+        free(ctx->argv);
+        free(ctx);
+        return NULL;
+    }
+    ctx->thread_count = 0;
+    ctx->using_threads = 0;
+
     return ctx;
 }
 
@@ -103,6 +127,10 @@ void exec_context_free(ExecContext *ctx)
     /* Free PID array */
     free(ctx->pids);
 
+    /* Free thread tracking array */
+    free(ctx->threads);
+
+    var_table_destroy(ctx->shell_vars);
     free(ctx);
 }
 
@@ -203,7 +231,58 @@ void visitAICommand(ListWord listword, ExecContext *ctx)
     char *argv[] = {"AI", query, NULL};
 
     /* Run the AI command in parent process (no fork needed) */
-    int status = spec->run(2, argv);
+    int status = spec->run(2, argv, stdin, stdout);
+    ctx->exit_status = status;
+}
+
+/*
+ * Visit AI String Command - handles AI commands with quoted string literals.
+ * Takes a StringLiteral token, strips quotes, and runs the AI command.
+ */
+void visitAIStringCommand(StringLiteral str_literal, ExecContext *ctx)
+{
+    /* Strip quotes from string literal (first and last char) */
+    size_t len = strlen(str_literal);
+    char query[2048] = "";
+
+    if (len >= 2 && str_literal[0] == '"' && str_literal[len-1] == '"') {
+        /* Copy without quotes, handle basic escapes */
+        size_t out_pos = 0;
+        for (size_t i = 1; i < len - 1 && out_pos < sizeof(query) - 1; i++) {
+            if (str_literal[i] == '\\' && i + 1 < len - 1) {
+                /* Handle escape sequences */
+                switch (str_literal[i+1]) {
+                    case 'n': query[out_pos++] = '\n'; i++; break;
+                    case 't': query[out_pos++] = '\t'; i++; break;
+                    case '"': query[out_pos++] = '"'; i++; break;
+                    case '\\': query[out_pos++] = '\\'; i++; break;
+                    default: query[out_pos++] = str_literal[i]; break;
+                }
+            } else {
+                query[out_pos++] = str_literal[i];
+            }
+        }
+        query[out_pos] = '\0';
+    } else {
+        /* No quotes or malformed - use as-is */
+        strncpy(query, str_literal, sizeof(query) - 1);
+        query[sizeof(query) - 1] = '\0';
+    }
+
+    /* Find the AI command in registry */
+    const cmd_spec_t *spec = find_command("AI");
+    if (!spec) {
+        fprintf(stderr, "Error: AI command not registered\n");
+        fprintf(stderr, "Make sure register_ai_command() was called at startup.\n");
+        ctx->exit_status = EXIT_ERROR;
+        return;
+    }
+
+    /* Build argv for AI command */
+    char *argv[] = {"AI", query, NULL};
+
+    /* Run the AI command in parent process (no fork needed) */
+    int status = spec->run(2, argv, stdin, stdout);
     ctx->exit_status = status;
 }
 
@@ -225,6 +304,10 @@ void visitCommand(Command p, ExecContext *ctx)
     case is_AICmd:
         /* AI command - interactive assistant */
         visitAICommand(p->u.aICmd_.listword_, ctx);
+        break;
+    case is_AIString:
+        /* AI command with quoted string prompt */
+        visitAIStringCommand(p->u.aIString_.stringliteral_, ctx);
         break;
 
     default:
@@ -281,9 +364,24 @@ void visitPipeline(Pipeline p, ExecContext *ctx)
             }
         }
 
+        /* Ensure thread tracking array can hold all potential built-ins */
+        if (ctx->thread_count + cmd_count > ctx->thread_capacity) {
+            ctx->thread_capacity = ctx->thread_count + cmd_count;
+            pthread_t *new_threads =
+                realloc(ctx->threads, ctx->thread_capacity * sizeof(pthread_t));
+            if (!new_threads) {
+                perror("realloc");
+                ctx->has_error = 1;
+                break;
+            }
+            ctx->threads = new_threads;
+        }
+
         /* Execute each command in pipeline */
         ListSimpleCommand sc_list = p->u.pipeLine_.listsimplecommand_;
         int position = 0;
+        int last_was_thread = 0;  /* Track what type the last command was */
+        int last_thread_index = -1;
 
         while (sc_list) {
             ctx->pipeline_position = position;
@@ -300,56 +398,136 @@ void visitPipeline(Pipeline p, ExecContext *ctx)
                 ctx->curr_pipe[1] = -1;
             }
 
-            /* Fork for this command */
-            pid_t pid = fork();
+            /* Build argv for this command to detect if it's a built-in */
+            exec_context_reset_command(ctx);
+            visitWord(sc_list->simplecommand_->u.cmd_.word_, ctx);
+            visitListWord(sc_list->simplecommand_->u.cmd_.listword_, ctx);
 
-            if (pid < 0) {
-                perror("fork");
+            /* NULL-terminate argv */
+            if (ctx->argc < ctx->argv_capacity) {
+                ctx->argv[ctx->argc] = NULL;
+            }
+
+            if (ctx->argc == 0) {
+                fprintf(stderr, "Empty command in pipeline\n");
                 ctx->has_error = 1;
                 break;
             }
 
-            if (pid == 0) {
-                /* === CHILD PROCESS === */
+            /* Detect if this is a built-in command */
+            const cmd_spec_t *spec = find_command(ctx->argv[0]);
+            int is_builtin = (spec != NULL);
 
-                /* Connect stdin to previous pipe (if not first) */
+            if (is_builtin) {
+                /* === BUILT-IN COMMAND → USE THREAD === */
+
+                /* Determine stdin/stdout file descriptors for this thread */
+                int stdin_fd = -1;
+                int stdout_fd = -1;
+
+                /* stdin comes from previous pipe (if not first command) */
                 if (ctx->prev_pipe[0] != -1) {
-                    dup2(ctx->prev_pipe[0], STDIN_FILENO);
+                    stdin_fd = ctx->prev_pipe[0];
+                }
+
+                /* stdout goes to current pipe (if not last command) */
+                if (ctx->curr_pipe[1] != -1) {
+                    stdout_fd = ctx->curr_pipe[1];
+                }
+
+                /* Create thread arguments (makes COPIES of argv and DUPS of fds) */
+                thread_args_t *targs = thread_args_create(ctx, spec, stdin_fd, stdout_fd);
+                if (!targs) {
+                    fprintf(stderr, "Failed to create thread args\n");
+                    ctx->has_error = 1;
+                    break;
+                }
+
+                /* Create thread to execute built-in */
+                pthread_t tid;
+                if (pthread_create(&tid, NULL, thread_execute_builtin, targs) != 0) {
+                    perror("pthread_create");
+                    thread_args_free(targs);
+                    ctx->has_error = 1;
+                    break;
+                }
+
+                /* Track thread for later join */
+                ctx->threads[ctx->thread_count] = tid;
+                if (position == cmd_count - 1) {
+                    last_thread_index = ctx->thread_count;
+                }
+                ctx->thread_count++;
+                last_was_thread = 1;
+
+                /* Close previous pipe in parent (thread has its own dup'd copy) */
+                if (ctx->prev_pipe[0] != -1) {
                     close(ctx->prev_pipe[0]);
                     close(ctx->prev_pipe[1]);
                 }
 
-                /* Connect stdout to current pipe (if not last) */
+                /* Close write end of current pipe (thread has dup'd it) */
                 if (ctx->curr_pipe[1] != -1) {
-                    dup2(ctx->curr_pipe[1], STDOUT_FILENO);
-                    close(ctx->curr_pipe[0]);
                     close(ctx->curr_pipe[1]);
                 }
 
-                /* Execute this SimpleCommand
-                 * visitSimpleCommand will see in_pipeline==1
-                 * and will NOT fork again, just exec
-                 */
-                visitSimpleCommand(sc_list->simplecommand_, ctx);
+            } else {
+                /* === EXTERNAL COMMAND → USE FORK/EXEC === */
 
-                /* If visitSimpleCommand didn't exec, exit */
-                _exit(ctx->exit_status);
+                pid_t pid = fork();
+
+                if (pid < 0) {
+                    perror("fork");
+                    ctx->has_error = 1;
+                    break;
+                }
+
+                if (pid == 0) {
+                    /* === CHILD PROCESS === */
+
+                    /* Connect stdin to previous pipe (if not first) */
+                    if (ctx->prev_pipe[0] != -1) {
+                        dup2(ctx->prev_pipe[0], STDIN_FILENO);
+                        close(ctx->prev_pipe[0]);
+                        close(ctx->prev_pipe[1]);
+                    }
+
+                    /* Connect stdout to current pipe (if not last) */
+                    if (ctx->curr_pipe[1] != -1) {
+                        dup2(ctx->curr_pipe[1], STDOUT_FILENO);
+                        close(ctx->curr_pipe[0]);
+                        close(ctx->curr_pipe[1]);
+                    }
+
+                    /* Execute external command */
+                    execvp(ctx->argv[0], ctx->argv);
+                    perror(ctx->argv[0]);
+                    _exit(127);
+                }
+
+                /* === PARENT PROCESS === */
+
+                /* Save PID for later waitpid */
+                ctx->pids[ctx->pid_count++] = pid;
+                last_was_thread = 0;
+
+                /* Close previous pipe in parent */
+                if (ctx->prev_pipe[0] != -1) {
+                    close(ctx->prev_pipe[0]);
+                    close(ctx->prev_pipe[1]);
+                }
+
+                /* Close write end of current pipe */
+                if (ctx->curr_pipe[1] != -1) {
+                    close(ctx->curr_pipe[1]);
+                }
             }
 
-            /* === PARENT PROCESS === */
-
-            /* Save PID */
-            ctx->pids[ctx->pid_count++] = pid;
-
-            /* Close previous pipe in parent */
-            if (ctx->prev_pipe[0] != -1) {
-                close(ctx->prev_pipe[0]);
-                close(ctx->prev_pipe[1]);
-            }
-
-            /* Current pipe becomes previous for next iteration */
+            /* Current pipe becomes previous for next iteration
+             * NOTE: Only save the READ end [0], since we closed the WRITE end [1]
+             */
             ctx->prev_pipe[0] = ctx->curr_pipe[0];
-            ctx->prev_pipe[1] = ctx->curr_pipe[1];
+            ctx->prev_pipe[1] = -1;  /* Write end was already closed */
 
             /* Move to next command */
             sc_list = sc_list->listsimplecommand_;
@@ -362,12 +540,24 @@ void visitPipeline(Pipeline p, ExecContext *ctx)
             close(ctx->prev_pipe[1]);
         }
 
-        /* Wait for all children */
+        /* Wait for all threads */
+        for (int i = 0; i < ctx->thread_count; i++) {
+            void *thread_status = NULL;
+            if (pthread_join(ctx->threads[i], &thread_status) != 0) {
+                perror("pthread_join");
+                continue;
+            }
+            if (i == last_thread_index) {
+                ctx->exit_status = (int)(long)thread_status;
+            }
+        }
+
+        /* Wait for all child processes (waitpid) */
         for (int i = 0; i < ctx->pid_count; i++) {
             int status;
             if (waitpid(ctx->pids[i], &status, 0) >= 0) {
-                /* Last command's status is pipeline's status */
-                if (i == ctx->pid_count - 1) {
+                /* If last command was a process, use its status */
+                if (i == ctx->pid_count - 1 && !last_was_thread) {
                     if (WIFEXITED(status))
                         ctx->exit_status = WEXITSTATUS(status);
                     else if (WIFSIGNALED(status))
@@ -378,6 +568,7 @@ void visitPipeline(Pipeline p, ExecContext *ctx)
 
         /* Reset pipeline state */
         ctx->pid_count = 0;
+        ctx->thread_count = 0;
         ctx->in_pipeline = 0;
 
         break;
@@ -414,7 +605,7 @@ static void execute_in_child(ExecContext *ctx)
          * commands in a forked child, we can just call the function directly
          * and then _exit() to terminate the child.
          */
-        int status = spec->run(ctx->argc, ctx->argv);
+        int status = spec->run(ctx->argc, ctx->argv, stdin, stdout);
         fflush(stdout);
         fflush(stderr);
         _exit(status);
@@ -466,6 +657,54 @@ static int builtin_help(ExecContext *ctx)
 }
 
 /*
+ * export built-in - set environment variables from shell context
+ */
+static int builtin_export(ExecContext *ctx)
+{
+    if (ctx->argc < 2) {
+        fprintf(stderr, "export: usage: export VAR=VALUE or export VAR\n");
+        return EXIT_ERROR;
+    }
+
+    for (int i = 1; i < ctx->argc; i++) {
+        char *arg = ctx->argv[i];
+        char *equals = strchr(arg, '=');
+
+        if (equals) {
+            *equals = '\0';
+            char *name = arg;
+            char *value = equals + 1;
+
+            if (!isalpha((unsigned char)name[0]) && name[0] != '_') {
+                fprintf(stderr, "export: invalid variable name: %s\n", name);
+                *equals = '=';
+                return EXIT_ERROR;
+            }
+
+            if (setenv(name, value, 1) != 0) {
+                perror("export");
+                *equals = '=';
+                return EXIT_ERROR;
+            }
+            *equals = '=';
+        } else {
+            const char *value = var_table_get(ctx->shell_vars, arg);
+            if (!value) {
+                fprintf(stderr, "export: %s: not found\n", arg);
+                return EXIT_ERROR;
+            }
+
+            if (setenv(arg, value, 1) != 0) {
+                perror("export");
+                return EXIT_ERROR;
+            }
+        }
+    }
+
+    return EXIT_OK;
+}
+
+/*
  * Visit SimpleCommand - REFACTORED per plan.md Phase 3
  *
  * KEY INSIGHT: This function has TWO MODES:
@@ -501,6 +740,28 @@ void visitSimpleCommand(SimpleCommand p, ExecContext *ctx)
 
         /* Skip if no command */
         if (ctx->argc == 0 || !ctx->argv[0]) {
+            break;
+        }
+
+        /* Handle shell variable assignment (VAR=VALUE) */
+        char *assign_eq = strchr(ctx->argv[0], '=');
+        if (assign_eq && !strchr(ctx->argv[0], '/')) {
+            *assign_eq = '\0';
+            char *name = ctx->argv[0];
+            char *value = assign_eq + 1;
+
+            if ((isalpha((unsigned char)name[0]) || name[0] == '_')) {
+                if (var_table_set(ctx->shell_vars, name, value) == 0) {
+                    ctx->exit_status = EXIT_OK;
+                } else {
+                    fprintf(stderr, "Failed to set variable %s\n", name);
+                    ctx->exit_status = EXIT_ERROR;
+                }
+            } else {
+                fprintf(stderr, "Invalid variable name: %s\n", name);
+                ctx->exit_status = EXIT_ERROR;
+            }
+            *assign_eq = '=';
             break;
         }
 
@@ -540,6 +801,9 @@ void visitSimpleCommand(SimpleCommand p, ExecContext *ctx)
                 break;
             } else if (strcmp(ctx->argv[0], "help") == 0) {
                 ctx->exit_status = builtin_help(ctx);
+                break;
+            } else if (strcmp(ctx->argv[0], "export") == 0) {
+                ctx->exit_status = builtin_export(ctx);
                 break;
             }
 
@@ -735,13 +999,89 @@ void visitListRedirection(ListRedirection listredirection, ExecContext *ctx)
 }
 
 /*
- * Visit Word - adds word to argv
- * This is called for command name and each argument
+ * Expand variables within a word before adding to argv.
+ * Supports shell-local vars, environment vars, and special vars ($$, $?, $0).
  */
+static char *expand_variables(const char *word, ExecContext *ctx)
+{
+    char *result = malloc(4096);
+    if (!result) {
+        perror("malloc");
+        return NULL;
+    }
+
+    char *dst = result;
+    const char *src = word;
+    const size_t max_len = 4095;
+
+    while (*src && (size_t)(dst - result) < max_len) {
+        if (*src != '$') {
+            *dst++ = *src++;
+            continue;
+        }
+
+        src++;
+
+        if (*src == '$') {
+            dst += snprintf(dst, max_len - (dst - result), "%d", getpid());
+            src++;
+            continue;
+        }
+
+        if (*src == '?') {
+            dst += snprintf(dst, max_len - (dst - result), "%d", ctx->exit_status);
+            src++;
+            continue;
+        }
+
+        if (*src == '0') {
+            dst += snprintf(dst, max_len - (dst - result), "%s", "picobox");
+            src++;
+            continue;
+        }
+
+        if (!isalnum((unsigned char)*src) && *src != '_') {
+            *dst++ = '$';
+            continue;
+        }
+
+        char name[256];
+        int i = 0;
+        while (*src && (isalnum((unsigned char)*src) || *src == '_') && i < 255) {
+            name[i++] = *src++;
+        }
+        name[i] = '\0';
+
+        if (i == 0) {
+            continue;
+        }
+
+        const char *value = var_table_get(ctx->shell_vars, name);
+        if (!value) {
+            value = getenv(name);
+        }
+
+        if (!value) {
+            continue;
+        }
+
+        size_t remaining = max_len - (size_t)(dst - result);
+        size_t value_len = strlen(value);
+        if (value_len > remaining) {
+            value_len = remaining;
+        }
+        memcpy(dst, value, value_len);
+        dst += value_len;
+    }
+
+    *dst = '\0';
+    return result;
+}
+
 void visitWord(Word p, ExecContext *ctx)
 {
-    /* Grow argv if needed */
-    if (ctx->argc >= ctx->argv_capacity - 1) {  /* -1 for NULL terminator */
+    /* Ensure argv has space for the new expanded word */
+    if (ctx->argc >= ctx->argv_capacity - 1) {
         ctx->argv_capacity *= 2;
         ctx->argv = realloc(ctx->argv, ctx->argv_capacity * sizeof(char *));
         if (!ctx->argv) {
@@ -750,10 +1090,10 @@ void visitWord(Word p, ExecContext *ctx)
         }
     }
 
-    /* Add word to argv */
-    ctx->argv[ctx->argc] = strdup(p);
+    /* Expand variables and store newly allocated string in argv */
+    ctx->argv[ctx->argc] = expand_variables(p, ctx);
     if (!ctx->argv[ctx->argc]) {
-        perror("strdup");
+        perror("expand_variables");
         exit(1);
     }
     ctx->argc++;
@@ -765,4 +1105,3 @@ void visitInteger(Integer i, ExecContext *ctx) { (void)i; (void)ctx; }
 void visitDouble(Double d, ExecContext *ctx) { (void)d; (void)ctx; }
 void visitChar(Char c, ExecContext *ctx) { (void)c; (void)ctx; }
 void visitString(String s, ExecContext *ctx) { (void)s; (void)ctx; }
-

@@ -22,7 +22,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int rm_run(int argc, char **argv);
+int rm_run(int argc, char **argv, FILE *in, FILE *out);
 void rm_print_usage(FILE *out);
 static int rm_recursive(const char *path);
 
@@ -104,8 +104,10 @@ static int rm_recursive(const char *path)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int rm_run(int argc, char **argv)
+int rm_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int recursive = 0;
     int force = 0;
@@ -210,6 +212,6 @@ void register_rm_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_rm_spec.run(argc, argv);
+    return cmd_rm_spec.run(argc, argv, stdin, stdout);
 }
 #endif

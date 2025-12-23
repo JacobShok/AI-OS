@@ -19,6 +19,11 @@ Environment Variables:
     MYSH_LLM_DEBUG     - Enable debug output (set to 1)
 """
 
+"""
+mysh_llm.py translates natural language → shell command Input: "show me all files"
+Output: ls -la
+"""
+
 import os
 import sys
 import json

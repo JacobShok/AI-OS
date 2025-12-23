@@ -47,7 +47,9 @@ void shListWord(ListWord p);
 void shListRedirection(ListRedirection p);
 
 void ppWord(String s, int i);
+void ppStringLiteral(String s, int i);
 void shWord(String s);
+void shStringLiteral(String s);
 void ppInteger(Integer n, int i);
 void ppDouble(Double d, int i);
 void ppChar(Char c, int i);

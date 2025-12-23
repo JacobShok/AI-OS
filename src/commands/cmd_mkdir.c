@@ -21,7 +21,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int mkdir_run(int argc, char **argv);
+int mkdir_run(int argc, char **argv, FILE *in, FILE *out);
 void mkdir_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -135,8 +135,10 @@ cleanup:
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int mkdir_run(int argc, char **argv)
+int mkdir_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int parents = 0;
     mode_t mode = 0777;  /* Default: rwxrwxrwx (modified by umask) */
@@ -235,6 +237,6 @@ void register_mkdir_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_mkdir_spec.run(argc, argv);
+    return cmd_mkdir_spec.run(argc, argv, stdin, stdout);
 }
 #endif

@@ -21,7 +21,7 @@
 #define MAX_LINES 10000
 
 /* Forward declarations */
-int tail_run(int argc, char **argv);
+int tail_run(int argc, char **argv, FILE *in, FILE *out);
 void tail_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -125,8 +125,10 @@ static int tail_file(const char *filename, int num_lines)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int tail_run(int argc, char **argv)
+int tail_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int num_lines = DEFAULT_LINES;
     int i;
@@ -237,6 +239,6 @@ void register_tail_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_tail_spec.run(argc, argv);
+    return cmd_tail_spec.run(argc, argv, stdin, stdout);
 }
 #endif

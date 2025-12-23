@@ -20,7 +20,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int grep_run(int argc, char **argv);
+int grep_run(int argc, char **argv, FILE *in, FILE *out);
 void grep_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -109,8 +109,10 @@ static int grep_file(const char *filename, const char *pattern, int ignore_case,
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int grep_run(int argc, char **argv)
+int grep_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int ignore_case = 0;
     int line_numbers = 0;
@@ -215,6 +217,6 @@ void register_grep_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_grep_spec.run(argc, argv);
+    return cmd_grep_spec.run(argc, argv, stdin, stdout);
 }
 #endif

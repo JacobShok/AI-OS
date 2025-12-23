@@ -22,6 +22,7 @@ typedef double Double;
 typedef char* String;
 typedef char* Ident;
 typedef char* Word;
+typedef char* StringLiteral;
 
 /********************   Forward Declarations    ***********************/
 struct Input_;
@@ -66,18 +67,20 @@ Input make_StartInput(ListCommand p0);
 
 struct Command_
 {
-  enum { is_SimpleCmd, is_PipeCmd, is_AICmd } kind;
+  enum { is_SimpleCmd, is_PipeCmd, is_AICmd, is_AIString } kind;
   union
   {
     struct { SimpleCommand simplecommand_; } simpleCmd_;
     struct { Pipeline pipeline_; } pipeCmd_;
     struct { ListWord listword_; } aICmd_;
+    struct { StringLiteral stringliteral_; } aIString_;
   } u;
 };
 
 Command make_SimpleCmd(SimpleCommand p0);
 Command make_PipeCmd(Pipeline p0);
 Command make_AICmd(ListWord p0);
+Command make_AIString(StringLiteral p0);
 
 struct Pipeline_
 {

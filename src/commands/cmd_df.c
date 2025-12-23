@@ -19,7 +19,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int df_run(int argc, char **argv);
+int df_run(int argc, char **argv, FILE *in, FILE *out);
 void df_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -48,8 +48,10 @@ static void build_df_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int df_run(int argc, char **argv)
+int df_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     struct statvfs vfs;
     int human = 0;
@@ -174,6 +176,6 @@ void register_df_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_df_spec.run(argc, argv);
+    return cmd_df_spec.run(argc, argv, stdin, stdout);
 }
 #endif

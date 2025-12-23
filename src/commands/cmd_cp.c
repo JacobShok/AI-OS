@@ -23,7 +23,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int cp_run(int argc, char **argv);
+int cp_run(int argc, char **argv, FILE *in, FILE *out);
 void cp_print_usage(FILE *out);
 static int cp_recursive(const char *src, const char *dest);
 
@@ -112,8 +112,10 @@ static int cp_recursive(const char *src, const char *dest)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int cp_run(int argc, char **argv)
+int cp_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int recursive = 0;
     const char *src;
@@ -209,6 +211,6 @@ void register_cp_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_cp_spec.run(argc, argv);
+    return cmd_cp_spec.run(argc, argv, stdin, stdout);
 }
 #endif

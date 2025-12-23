@@ -19,7 +19,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int ln_run(int argc, char **argv);
+int ln_run(int argc, char **argv, FILE *in, FILE *out);
 void ln_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -51,8 +51,10 @@ static void build_ln_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int ln_run(int argc, char **argv)
+int ln_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int symbolic = 0;
     int force = 0;
@@ -157,6 +159,6 @@ void register_ln_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_ln_spec.run(argc, argv);
+    return cmd_ln_spec.run(argc, argv, stdin, stdout);
 }
 #endif

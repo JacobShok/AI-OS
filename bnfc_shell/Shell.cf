@@ -12,10 +12,15 @@ comment "/*" "*/" ;
 comment "//" "\n" ;
 comment "#" "\n" ;
 
--- Token for words (command names, arguments, filenames, paths)
--- Matches: letters, digits, underscore, dot, slash, hyphen, tilde
--- Can start with letter, digit, dot, slash, tilde, or hyphen
-token Word ((letter | digit | '_' | '.' | '/' | '~' | '-') (letter | digit | '_' | '.' | '/' | '~' | '-')*) ;
+-- Token for words (command names, arguments, filenames, paths, variables)
+-- Allow shell punctuation such as =, $, and ? so assignments/expansions parse as single tokens.
+token Word ((letter | digit | '_' | '.' | '/' | '~' | '-' | '$' | '=' | '?')
+            (letter | digit | '_' | '.' | '/' | '~' | '-' | '$' | '=' | ':' | '?')*) ;
+
+-- String literal with simple escape handling for AI prompts, e.g. AI "list files"
+token StringLiteral ('"' ( '\\' ('"' | '\\' | 'n' | 't')
+                        | (char - '"' - '\\')
+                        )* '"') ;
 
 -- Token for AI query strings (everything after "AI" until end of line or semicolon)
 -- We'll use the built-in String type which handles quoted strings
@@ -33,6 +38,7 @@ StartInput. Input ::= [Command] ;
 SimpleCmd. Command ::= SimpleCommand ;
 PipeCmd.   Command ::= Pipeline ;
 AICmd.     Command ::= "AI" [Word] ;
+AIString.  Command ::= "AI" StringLiteral ;
 
 -- A pipeline is a list of simple commands separated by |
 PipeLine. Pipeline ::= [SimpleCommand] ;

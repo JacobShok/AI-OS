@@ -20,7 +20,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int dirname_run(int argc, char **argv);
+int dirname_run(int argc, char **argv, FILE *in, FILE *out);
 void dirname_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -46,8 +46,10 @@ static void build_dirname_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int dirname_run(int argc, char **argv)
+int dirname_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     char *result;
 
@@ -130,6 +132,6 @@ void register_dirname_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_dirname_spec.run(argc, argv);
+    return cmd_dirname_spec.run(argc, argv, stdin, stdout);
 }
 #endif

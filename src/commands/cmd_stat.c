@@ -18,7 +18,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int stat_run(int argc, char **argv);
+int stat_run(int argc, char **argv, FILE *in, FILE *out);
 void stat_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -44,8 +44,10 @@ static void build_stat_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int stat_run(int argc, char **argv)
+int stat_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     struct stat st;
     int i;
@@ -144,6 +146,6 @@ void register_stat_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_stat_spec.run(argc, argv);
+    return cmd_stat_spec.run(argc, argv, stdin, stdout);
 }
 #endif

@@ -21,7 +21,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int pwd_run(int argc, char **argv);
+int pwd_run(int argc, char **argv, FILE *in, FILE *out);
 void pwd_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES (static to this file) ===== */
@@ -77,8 +77,10 @@ static void build_pwd_argtable(void)
  * @param argv Array of argument strings
  * @return EXIT_OK on success, EXIT_ERROR on failure
  */
-int pwd_run(int argc, char **argv)
+int pwd_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int use_logical;
     char cwd[PATH_MAX];
@@ -219,6 +221,6 @@ void register_pwd_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_pwd_spec.run(argc, argv);
+    return cmd_pwd_spec.run(argc, argv, stdin, stdout);
 }
 #endif

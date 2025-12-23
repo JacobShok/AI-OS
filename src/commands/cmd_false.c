@@ -19,7 +19,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int false_run(int argc, char **argv);
+int false_run(int argc, char **argv, FILE *in, FILE *out);
 void false_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -42,8 +42,10 @@ static void build_false_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int false_run(int argc, char **argv)
+int false_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
 
     build_false_argtable();
@@ -114,6 +116,6 @@ void register_false_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_false_spec.run(argc, argv);
+    return cmd_false_spec.run(argc, argv, stdin, stdout);
 }
 #endif

@@ -17,7 +17,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int echo_run(int argc, char **argv);
+int echo_run(int argc, char **argv, FILE *in, FILE *out);
 void echo_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES (static to this file) ===== */
@@ -73,8 +73,10 @@ static void build_echo_argtable(void)
  * @param argv Array of argument strings
  * @return EXIT_OK on success, EXIT_ERROR on failure
  */
-int echo_run(int argc, char **argv)
+int echo_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int i;
 
@@ -204,6 +206,6 @@ void register_echo_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_echo_spec.run(argc, argv);
+    return cmd_echo_spec.run(argc, argv, stdin, stdout);
 }
 #endif

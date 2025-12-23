@@ -187,17 +187,18 @@ enum yysymbol_kind_t
   YYSYMBOL__DGT = 7,                       /* _DGT  */
   YYSYMBOL__KW_AI = 8,                     /* _KW_AI  */
   YYSYMBOL__BAR = 9,                       /* _BAR  */
-  YYSYMBOL_T_Word = 10,                    /* T_Word  */
-  YYSYMBOL_YYACCEPT = 11,                  /* $accept  */
-  YYSYMBOL_Input = 12,                     /* Input  */
-  YYSYMBOL_Command = 13,                   /* Command  */
-  YYSYMBOL_Pipeline = 14,                  /* Pipeline  */
-  YYSYMBOL_SimpleCommand = 15,             /* SimpleCommand  */
-  YYSYMBOL_Redirection = 16,               /* Redirection  */
-  YYSYMBOL_ListCommand = 17,               /* ListCommand  */
-  YYSYMBOL_ListSimpleCommand = 18,         /* ListSimpleCommand  */
-  YYSYMBOL_ListWord = 19,                  /* ListWord  */
-  YYSYMBOL_ListRedirection = 20            /* ListRedirection  */
+  YYSYMBOL_T_StringLiteral = 10,           /* T_StringLiteral  */
+  YYSYMBOL_T_Word = 11,                    /* T_Word  */
+  YYSYMBOL_YYACCEPT = 12,                  /* $accept  */
+  YYSYMBOL_Input = 13,                     /* Input  */
+  YYSYMBOL_Command = 14,                   /* Command  */
+  YYSYMBOL_Pipeline = 15,                  /* Pipeline  */
+  YYSYMBOL_SimpleCommand = 16,             /* SimpleCommand  */
+  YYSYMBOL_Redirection = 17,               /* Redirection  */
+  YYSYMBOL_ListCommand = 18,               /* ListCommand  */
+  YYSYMBOL_ListSimpleCommand = 19,         /* ListSimpleCommand  */
+  YYSYMBOL_ListWord = 20,                  /* ListWord  */
+  YYSYMBOL_ListRedirection = 21            /* ListRedirection  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -215,7 +216,7 @@ int yyparse(yyscan_t scanner, YYSTYPE *result);
 
 extern int yylex(YYSTYPE *lvalp, YYLTYPE *llocp, yyscan_t scanner);
 
-#line 219 "Shell.tab.c"
+#line 220 "Shell.tab.c"
 
 
 #ifdef short
@@ -540,21 +541,21 @@ union yyalloc
 #endif /* !YYCOPY_NEEDED */
 
 /* YYFINAL -- State number of the termination state.  */
-#define YYFINAL  12
+#define YYFINAL  13
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   23
+#define YYLAST   25
 
 /* YYNTOKENS -- Number of terminals.  */
-#define YYNTOKENS  11
+#define YYNTOKENS  12
 /* YYNNTS -- Number of nonterminals.  */
 #define YYNNTS  10
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  20
+#define YYNRULES  21
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  27
+#define YYNSTATES  28
 
 /* YYMAXUTOK -- Last valid token kind.  */
-#define YYMAXUTOK   265
+#define YYMAXUTOK   266
 
 
 /* YYTRANSLATE(TOKEN-NUM) -- Symbol number corresponding to TOKEN-NUM
@@ -594,16 +595,16 @@ static const yytype_int8 yytranslate[] =
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     2,     2,     2,     2,
        2,     2,     2,     2,     2,     2,     1,     2,     3,     4,
-       5,     6,     7,     8,     9,    10
+       5,     6,     7,     8,     9,    10,    11
 };
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_uint8 yyrline[] =
 {
-       0,   154,   154,   156,   157,   158,   160,   162,   164,   165,
-     166,   168,   169,   170,   172,   173,   174,   176,   177,   179,
-     180
+       0,   155,   155,   157,   158,   159,   160,   162,   164,   166,
+     167,   168,   170,   171,   172,   174,   175,   176,   178,   179,
+     181,   182
 };
 #endif
 
@@ -620,9 +621,10 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
 static const char *const yytname[] =
 {
   "\"end of file\"", "error", "\"invalid token\"", "_ERROR_", "_SEMI",
-  "_LT", "_GT", "_DGT", "_KW_AI", "_BAR", "T_Word", "$accept", "Input",
-  "Command", "Pipeline", "SimpleCommand", "Redirection", "ListCommand",
-  "ListSimpleCommand", "ListWord", "ListRedirection", YY_NULLPTR
+  "_LT", "_GT", "_DGT", "_KW_AI", "_BAR", "T_StringLiteral", "T_Word",
+  "$accept", "Input", "Command", "Pipeline", "SimpleCommand",
+  "Redirection", "ListCommand", "ListSimpleCommand", "ListWord",
+  "ListRedirection", YY_NULLPTR
 };
 
 static const char *
@@ -632,12 +634,12 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-6)
+#define YYPACT_NINF (-10)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
 
-#define YYTABLE_NINF (-15)
+#define YYTABLE_NINF (-16)
 
 #define yytable_value_is_error(Yyn) \
   0
@@ -646,9 +648,9 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-       0,    -5,    -5,     6,     5,    -6,     2,    -6,    -6,    -5,
-      -6,    -6,    -6,     0,     3,    -6,    -4,    -6,     2,    -6,
-       4,     7,     8,    -6,    -6,    -6,    -6
+      -1,    -9,    -7,     5,     2,   -10,     0,   -10,   -10,   -10,
+      -7,   -10,   -10,   -10,    -1,     3,   -10,     6,   -10,     0,
+     -10,     4,     7,     8,   -10,   -10,   -10,   -10
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -656,21 +658,21 @@ static const yytype_int8 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-      11,    17,    17,     0,    12,     4,     3,     2,     6,    17,
-       5,    19,     1,    11,    14,    18,     7,    13,    15,    16,
-       0,     0,     0,    20,     8,     9,    10
+      12,    18,    18,     0,    13,     4,     3,     2,     7,     6,
+      18,     5,    20,     1,    12,    15,    19,     8,    14,    16,
+      17,     0,     0,     0,    21,     9,    10,    11
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-      -6,    -6,    -6,    -6,     1,    -6,    -1,     9,    -2,    -6
+     -10,   -10,   -10,   -10,     1,   -10,     9,    10,    -2,   -10
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     3,     4,     5,     6,    23,     7,     8,    10,    16
+       0,     3,     4,     5,     6,    24,     7,     8,    11,    17
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -678,41 +680,41 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      11,    20,    21,    22,   -14,     9,    12,    15,     1,    13,
-       2,    14,    17,     2,    24,    18,     0,    25,    26,     0,
-       0,     0,     0,    19
+      12,     9,    10,   -15,    10,    13,    14,     1,    16,    15,
+       2,    21,    22,    23,     2,    25,    19,     0,    26,    27,
+       0,     0,     0,    18,     0,    20
 };
 
 static const yytype_int8 yycheck[] =
 {
-       2,     5,     6,     7,     4,    10,     0,     9,     8,     4,
-      10,     9,    13,    10,    10,    14,    -1,    10,    10,    -1,
-      -1,    -1,    -1,    14
+       2,    10,    11,     4,    11,     0,     4,     8,    10,     9,
+      11,     5,     6,     7,    11,    11,    15,    -1,    11,    11,
+      -1,    -1,    -1,    14,    -1,    15
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     8,    10,    12,    13,    14,    15,    17,    18,    10,
-      19,    19,     0,     4,     9,    19,    20,    17,    15,    18,
-       5,     6,     7,    16,    10,    10,    10
+       0,     8,    11,    13,    14,    15,    16,    18,    19,    10,
+      11,    20,    20,     0,     4,     9,    20,    21,    18,    16,
+      19,     5,     6,     7,    17,    11,    11,    11
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    11,    12,    13,    13,    13,    14,    15,    16,    16,
-      16,    17,    17,    17,    18,    18,    18,    19,    19,    20,
-      20
+       0,    12,    13,    14,    14,    14,    14,    15,    16,    17,
+      17,    17,    18,    18,    18,    19,    19,    19,    20,    20,
+      21,    21
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     1,     1,     1,     2,     1,     3,     2,     2,
-       2,     0,     1,     3,     0,     1,     3,     0,     2,     0,
-       2
+       0,     2,     1,     1,     1,     2,     2,     1,     3,     2,
+       2,     2,     0,     1,     3,     0,     1,     3,     0,     2,
+       0,     2
 };
 
 
@@ -1301,121 +1303,127 @@ yyreduce:
   switch (yyn)
     {
   case 2: /* Input: ListCommand  */
-#line 154 "Shell.y"
+#line 155 "Shell.y"
                     { (yyval.input_) = make_StartInput((yyvsp[0].listcommand_)); result->input_ = (yyval.input_); }
-#line 1307 "Shell.tab.c"
+#line 1309 "Shell.tab.c"
     break;
 
   case 3: /* Command: SimpleCommand  */
-#line 156 "Shell.y"
+#line 157 "Shell.y"
                         { (yyval.command_) = make_SimpleCmd((yyvsp[0].simplecommand_)); }
-#line 1313 "Shell.tab.c"
+#line 1315 "Shell.tab.c"
     break;
 
   case 4: /* Command: Pipeline  */
-#line 157 "Shell.y"
+#line 158 "Shell.y"
              { (yyval.command_) = make_PipeCmd((yyvsp[0].pipeline_)); }
-#line 1319 "Shell.tab.c"
+#line 1321 "Shell.tab.c"
     break;
 
   case 5: /* Command: _KW_AI ListWord  */
-#line 158 "Shell.y"
+#line 159 "Shell.y"
                     { (yyval.command_) = make_AICmd((yyvsp[0].listword_)); }
-#line 1325 "Shell.tab.c"
+#line 1327 "Shell.tab.c"
     break;
 
-  case 6: /* Pipeline: ListSimpleCommand  */
+  case 6: /* Command: _KW_AI T_StringLiteral  */
 #line 160 "Shell.y"
-                             { (yyval.pipeline_) = make_PipeLine((yyvsp[0].listsimplecommand_)); }
-#line 1331 "Shell.tab.c"
+                           { (yyval.command_) = make_AIString((yyvsp[0]._string)); }
+#line 1333 "Shell.tab.c"
     break;
 
-  case 7: /* SimpleCommand: T_Word ListWord ListRedirection  */
+  case 7: /* Pipeline: ListSimpleCommand  */
 #line 162 "Shell.y"
-                                                { (yyval.simplecommand_) = make_Cmd((yyvsp[-2]._string), (yyvsp[-1].listword_), reverseListRedirection((yyvsp[0].listredirection_))); }
-#line 1337 "Shell.tab.c"
+                             { (yyval.pipeline_) = make_PipeLine((yyvsp[0].listsimplecommand_)); }
+#line 1339 "Shell.tab.c"
     break;
 
-  case 8: /* Redirection: _LT T_Word  */
+  case 8: /* SimpleCommand: T_Word ListWord ListRedirection  */
 #line 164 "Shell.y"
-                         { (yyval.redirection_) = make_RedirIn((yyvsp[0]._string)); }
-#line 1343 "Shell.tab.c"
+                                                { (yyval.simplecommand_) = make_Cmd((yyvsp[-2]._string), (yyvsp[-1].listword_), reverseListRedirection((yyvsp[0].listredirection_))); }
+#line 1345 "Shell.tab.c"
     break;
 
-  case 9: /* Redirection: _GT T_Word  */
-#line 165 "Shell.y"
-               { (yyval.redirection_) = make_RedirOut((yyvsp[0]._string)); }
-#line 1349 "Shell.tab.c"
-    break;
-
-  case 10: /* Redirection: _DGT T_Word  */
+  case 9: /* Redirection: _LT T_Word  */
 #line 166 "Shell.y"
-                { (yyval.redirection_) = make_RedirAppend((yyvsp[0]._string)); }
-#line 1355 "Shell.tab.c"
+                         { (yyval.redirection_) = make_RedirIn((yyvsp[0]._string)); }
+#line 1351 "Shell.tab.c"
     break;
 
-  case 11: /* ListCommand: %empty  */
+  case 10: /* Redirection: _GT T_Word  */
+#line 167 "Shell.y"
+               { (yyval.redirection_) = make_RedirOut((yyvsp[0]._string)); }
+#line 1357 "Shell.tab.c"
+    break;
+
+  case 11: /* Redirection: _DGT T_Word  */
 #line 168 "Shell.y"
-                          { (yyval.listcommand_) = 0; }
-#line 1361 "Shell.tab.c"
+                { (yyval.redirection_) = make_RedirAppend((yyvsp[0]._string)); }
+#line 1363 "Shell.tab.c"
     break;
 
-  case 12: /* ListCommand: Command  */
-#line 169 "Shell.y"
-            { (yyval.listcommand_) = make_ListCommand((yyvsp[0].command_), 0); }
-#line 1367 "Shell.tab.c"
-    break;
-
-  case 13: /* ListCommand: Command _SEMI ListCommand  */
+  case 12: /* ListCommand: %empty  */
 #line 170 "Shell.y"
-                              { (yyval.listcommand_) = make_ListCommand((yyvsp[-2].command_), (yyvsp[0].listcommand_)); }
-#line 1373 "Shell.tab.c"
+                          { (yyval.listcommand_) = 0; }
+#line 1369 "Shell.tab.c"
     break;
 
-  case 14: /* ListSimpleCommand: %empty  */
+  case 13: /* ListCommand: Command  */
+#line 171 "Shell.y"
+            { (yyval.listcommand_) = make_ListCommand((yyvsp[0].command_), 0); }
+#line 1375 "Shell.tab.c"
+    break;
+
+  case 14: /* ListCommand: Command _SEMI ListCommand  */
 #line 172 "Shell.y"
-                                { (yyval.listsimplecommand_) = 0; }
-#line 1379 "Shell.tab.c"
+                              { (yyval.listcommand_) = make_ListCommand((yyvsp[-2].command_), (yyvsp[0].listcommand_)); }
+#line 1381 "Shell.tab.c"
     break;
 
-  case 15: /* ListSimpleCommand: SimpleCommand  */
-#line 173 "Shell.y"
-                  { (yyval.listsimplecommand_) = make_ListSimpleCommand((yyvsp[0].simplecommand_), 0); }
-#line 1385 "Shell.tab.c"
-    break;
-
-  case 16: /* ListSimpleCommand: SimpleCommand _BAR ListSimpleCommand  */
+  case 15: /* ListSimpleCommand: %empty  */
 #line 174 "Shell.y"
-                                         { (yyval.listsimplecommand_) = make_ListSimpleCommand((yyvsp[-2].simplecommand_), (yyvsp[0].listsimplecommand_)); }
-#line 1391 "Shell.tab.c"
+                                { (yyval.listsimplecommand_) = 0; }
+#line 1387 "Shell.tab.c"
     break;
 
-  case 17: /* ListWord: %empty  */
+  case 16: /* ListSimpleCommand: SimpleCommand  */
+#line 175 "Shell.y"
+                  { (yyval.listsimplecommand_) = make_ListSimpleCommand((yyvsp[0].simplecommand_), 0); }
+#line 1393 "Shell.tab.c"
+    break;
+
+  case 17: /* ListSimpleCommand: SimpleCommand _BAR ListSimpleCommand  */
 #line 176 "Shell.y"
+                                         { (yyval.listsimplecommand_) = make_ListSimpleCommand((yyvsp[-2].simplecommand_), (yyvsp[0].listsimplecommand_)); }
+#line 1399 "Shell.tab.c"
+    break;
+
+  case 18: /* ListWord: %empty  */
+#line 178 "Shell.y"
                        { (yyval.listword_) = 0; }
-#line 1397 "Shell.tab.c"
+#line 1405 "Shell.tab.c"
     break;
 
-  case 18: /* ListWord: T_Word ListWord  */
-#line 177 "Shell.y"
-                    { (yyval.listword_) = make_ListWord((yyvsp[-1]._string), (yyvsp[0].listword_)); }
-#line 1403 "Shell.tab.c"
-    break;
-
-  case 19: /* ListRedirection: %empty  */
+  case 19: /* ListWord: T_Word ListWord  */
 #line 179 "Shell.y"
+                    { (yyval.listword_) = make_ListWord((yyvsp[-1]._string), (yyvsp[0].listword_)); }
+#line 1411 "Shell.tab.c"
+    break;
+
+  case 20: /* ListRedirection: %empty  */
+#line 181 "Shell.y"
                               { (yyval.listredirection_) = 0; }
-#line 1409 "Shell.tab.c"
+#line 1417 "Shell.tab.c"
     break;
 
-  case 20: /* ListRedirection: ListRedirection Redirection  */
-#line 180 "Shell.y"
+  case 21: /* ListRedirection: ListRedirection Redirection  */
+#line 182 "Shell.y"
                                 { (yyval.listredirection_) = make_ListRedirection((yyvsp[0].redirection_), (yyvsp[-1].listredirection_)); }
-#line 1415 "Shell.tab.c"
+#line 1423 "Shell.tab.c"
     break;
 
 
-#line 1419 "Shell.tab.c"
+#line 1427 "Shell.tab.c"
 
       default: break;
     }
@@ -1613,7 +1621,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 183 "Shell.y"
+#line 185 "Shell.y"
 
 
 

@@ -171,6 +171,13 @@ void ppCommand(Command p, int _i_)
     if (_i_ > 0) renderC(_R_PAREN);
     break;
 
+  case is_AIString:
+    if (_i_ > 0) renderC(_L_PAREN);
+    renderS("AI");
+    ppIdent(p->u.aIString_.stringliteral_, 0);
+    if (_i_ > 0) renderC(_R_PAREN);
+    break;
+
   default:
     fprintf(stderr, "Error: bad kind field when printing Command!\n");
     exit(1);
@@ -336,6 +343,12 @@ void ppWord(String s, int i)
 }
 
 
+void ppStringLiteral(String s, int i)
+{
+  renderS(s);
+}
+
+
 void shInput(Input p)
 {
   switch(p->kind)
@@ -395,6 +408,18 @@ void shCommand(Command p)
     bufAppendC(' ');
 
     shListWord(p->u.aICmd_.listword_);
+
+    bufAppendC(')');
+
+    break;
+  case is_AIString:
+    bufAppendC('(');
+
+    bufAppendS("AIString");
+
+    bufAppendC(' ');
+
+    shIdent(p->u.aIString_.stringliteral_);
 
     bufAppendC(')');
 
@@ -615,6 +640,14 @@ void shIdent(String s)
 }
 
 void shWord(String s)
+{
+  bufAppendC('\"');
+  bufEscapeS(s);
+  bufAppendC('\"');
+}
+
+
+void shStringLiteral(String s)
 {
   bufAppendC('\"');
   bufEscapeS(s);

@@ -21,7 +21,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int basename_run(int argc, char **argv);
+int basename_run(int argc, char **argv, FILE *in, FILE *out);
 void basename_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -50,8 +50,10 @@ static void build_basename_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int basename_run(int argc, char **argv)
+int basename_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     char *result;
     const char *suffix;
@@ -143,6 +145,6 @@ void register_basename_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_basename_spec.run(argc, argv);
+    return cmd_basename_spec.run(argc, argv, stdin, stdout);
 }
 #endif

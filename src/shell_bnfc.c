@@ -20,6 +20,7 @@
 #include "../bnfc_shell/Skeleton.h"
 #include <string.h>
 #include <sys/wait.h>
+#include <unistd.h>
 
 /* External declarations for refactored commands */
 extern void register_echo_command(void);
@@ -162,6 +163,7 @@ static void handle_llm_query(const char *query, ExecContext *ctx)
         llm_script = "python3 mysh_llm.py";
     }
 
+    // Result: cmd = "python3 mysh_llm.py \"show files\" 2>&1"
     /* Build command - basic escaping (assumes query doesn't contain quotes) */
     snprintf(cmd, sizeof(cmd), "%s \"%s\" 2>&1", llm_script, query);
 
@@ -777,11 +779,14 @@ int shell_bnfc_main_visitor(void)
     printf("   @show me all files        (New: mysh_llm.py with RAG)\n");
     printf("   AI how do I list files    (Legacy: cmd_ai.c)\n");
     printf("\n");
+    fflush(stdout);  /* Ensure banner is printed before any fork() */
 
     while (1) {
-        /* Print prompt */
-        printf("%s", PROMPT);
-        fflush(stdout);
+        /* Print prompt only if stdin is a terminal */
+        if (isatty(STDIN_FILENO)) {
+            printf("%s", PROMPT);
+            fflush(stdout);
+        }
 
         /* Read line */
         if (fgets(line, sizeof(line), stdin) == NULL) {
@@ -835,6 +840,10 @@ int shell_bnfc_main_visitor(void)
 
         /* Free AST */
         free_Input(ast);
+
+        /* Ensure we're on a new line before the next prompt */
+        /* This handles commands that produce no output (true, false, mkdir, etc) */
+        fflush(stdout);
 
         /* Check for exit signal */
         if (ctx->should_exit) {

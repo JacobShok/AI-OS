@@ -21,7 +21,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int find_run(int argc, char **argv);
+int find_run(int argc, char **argv, FILE *in, FILE *out);
 void find_print_usage(FILE *out);
 static void find_recursive(const char *path, const char *name_pattern, char type_filter);
 
@@ -108,8 +108,10 @@ static void find_recursive(const char *path, const char *name_pattern, char type
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int find_run(int argc, char **argv)
+int find_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     const char *start_path = ".";
     const char *name_pattern = NULL;
@@ -206,6 +208,6 @@ void register_find_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_find_spec.run(argc, argv);
+    return cmd_find_spec.run(argc, argv, stdin, stdout);
 }
 #endif

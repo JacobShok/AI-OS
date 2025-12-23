@@ -24,7 +24,7 @@
 extern char **environ;
 
 /* Forward declarations */
-int env_run(int argc, char **argv);
+int env_run(int argc, char **argv, FILE *in, FILE *out);
 void env_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -47,8 +47,10 @@ static void build_env_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int env_run(int argc, char **argv)
+int env_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int i;
 
@@ -127,6 +129,6 @@ void register_env_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_env_spec.run(argc, argv);
+    return cmd_env_spec.run(argc, argv, stdin, stdout);
 }
 #endif

@@ -17,7 +17,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int head_run(int argc, char **argv);
+int head_run(int argc, char **argv, FILE *in, FILE *out);
 void head_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -84,8 +84,10 @@ static int head_file(const char *filename, int num_lines)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int head_run(int argc, char **argv)
+int head_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int num_lines = 10;  /* default */
     int i;
@@ -196,6 +198,6 @@ void register_head_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_head_spec.run(argc, argv);
+    return cmd_head_spec.run(argc, argv, stdin, stdout);
 }
 #endif

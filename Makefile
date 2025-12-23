@@ -5,8 +5,8 @@
 # Compiler and flags
 CC = gcc
 CFLAGS = -Wall -Wextra -Werror -std=c11 -O2 -g
-LDFLAGS = -lcurl -L/opt/homebrew/opt/json-c/lib -ljson-c -L/opt/homebrew/opt/argtable3/lib -largtable3
-INCLUDES = -Iinclude -I/opt/homebrew/opt/json-c/include -I/opt/homebrew/opt/argtable3/include
+LDFLAGS = -lcurl -L/opt/homebrew/opt/json-c/lib -ljson-c -L/opt/homebrew/opt/argtable3/lib -largtable3 -pthread
+INCLUDES = -Iinclude -Ibnfc_shell -I/opt/homebrew/opt/json-c/include -I/opt/homebrew/opt/argtable3/include
 BISON = /opt/homebrew/opt/bison/bin/bison
 FLEX = flex
 
@@ -41,7 +41,8 @@ LEGACY_CMD_SRCS = \
 # Main source files
 MAIN_SRCS = $(SRC_DIR)/main.c $(SRC_DIR)/utils.c $(SRC_DIR)/shell.c \
             $(SRC_DIR)/shell_bnfc.c $(SRC_DIR)/exec_helpers.c $(SRC_DIR)/pipe_helpers.c \
-            $(SRC_DIR)/redirect_helpers.c $(SRC_DIR)/cmd_compat.c
+            $(SRC_DIR)/redirect_helpers.c $(SRC_DIR)/cmd_compat.c $(SRC_DIR)/var_table.c \
+            $(SRC_DIR)/thread_exec.c
 
 # Combine all sources
 SRCS = $(MAIN_SRCS) $(LEGACY_CMD_SRCS) $(CORE_SRCS)
@@ -100,7 +101,7 @@ $(BUILD_DIR)/refactored_%.o: $(COMMANDS_DIR)/%.c
 
 # Compile BNFC-generated files to object files (with relaxed warnings)
 $(BUILD_DIR)/bnfc_%.o: $(BNFC_DIR)/%.c
-	$(CC) -Wall -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-sign-compare -std=c11 -O2 -g -c -o $@ $<
+	$(CC) -Wall -Wno-unused-parameter -Wno-unused-but-set-variable -Wno-sign-compare -std=c11 -O2 -g -Iinclude -Ibnfc_shell -c -o $@ $<
 
 # Clean build artifacts
 .PHONY: clean

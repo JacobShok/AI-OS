@@ -25,7 +25,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int ls_run(int argc, char **argv);
+int ls_run(int argc, char **argv, FILE *in, FILE *out);
 void ls_print_usage(FILE *out);
 static void print_long_format(const char *path, const char *name, int human);
 static int ls_dir(const char *path, int show_all, int long_format, int human);
@@ -145,8 +145,10 @@ static int ls_dir(const char *path, int show_all, int long_format, int human)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int ls_run(int argc, char **argv)
+int ls_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int show_all = 0;
     int long_format = 0;
@@ -247,6 +249,6 @@ void register_ls_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_ls_spec.run(argc, argv);
+    return cmd_ls_spec.run(argc, argv, stdin, stdout);
 }
 #endif

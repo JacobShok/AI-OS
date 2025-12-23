@@ -22,7 +22,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int sleep_run(int argc, char **argv);
+int sleep_run(int argc, char **argv, FILE *in, FILE *out);
 void sleep_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -48,8 +48,10 @@ static void build_sleep_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int sleep_run(int argc, char **argv)
+int sleep_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     const char *duration_str;
     char *endptr;
@@ -172,6 +174,6 @@ void register_sleep_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_sleep_spec.run(argc, argv);
+    return cmd_sleep_spec.run(argc, argv, stdin, stdout);
 }
 #endif

@@ -17,7 +17,7 @@
 #include "picobox.h"
 
 /* Forward declarations */
-int chmod_run(int argc, char **argv);
+int chmod_run(int argc, char **argv, FILE *in, FILE *out);
 void chmod_print_usage(FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
@@ -46,8 +46,10 @@ static void build_chmod_argtable(void)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int chmod_run(int argc, char **argv)
+int chmod_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     mode_t mode;
     char *endptr;
@@ -139,6 +141,6 @@ void register_chmod_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_chmod_spec.run(argc, argv);
+    return cmd_chmod_spec.run(argc, argv, stdin, stdout);
 }
 #endif

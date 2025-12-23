@@ -61,7 +61,8 @@ extern int yydebug;
     _DGT = 262,                    /* _DGT  */
     _KW_AI = 263,                  /* _KW_AI  */
     _BAR = 264,                    /* _BAR  */
-    T_Word = 265                   /* T_Word  */
+    T_StringLiteral = 265,         /* T_StringLiteral  */
+    T_Word = 266                   /* T_Word  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -86,7 +87,7 @@ union YYSTYPE
   ListWord listword_;
   ListRedirection listredirection_;
 
-#line 90 "Bison.h"
+#line 91 "Bison.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

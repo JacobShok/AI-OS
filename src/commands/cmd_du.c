@@ -21,7 +21,7 @@
 #include "utils.h"
 
 /* Forward declarations */
-int du_run(int argc, char **argv);
+int du_run(int argc, char **argv, FILE *in, FILE *out);
 void du_print_usage(FILE *out);
 static off_t du_recursive(const char *path, int summary, int human);
 
@@ -103,8 +103,10 @@ static off_t du_recursive(const char *path, int summary, int human)
 
 /* ===== SECTION 3: RUN FUNCTION ===== */
 
-int du_run(int argc, char **argv)
+int du_run(int argc, char **argv, FILE *in, FILE *out)
 {
+    (void)in;
+    (void)out;
     int nerrors;
     int summary = 0;
     int human = 0;
@@ -215,6 +217,6 @@ void register_du_command(void)
 #ifndef BUILTIN_ONLY
 int main(int argc, char **argv)
 {
-    return cmd_du_spec.run(argc, argv);
+    return cmd_du_spec.run(argc, argv, stdin, stdout);
 }
 #endif

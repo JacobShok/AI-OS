@@ -31,12 +31,25 @@ typedef struct cmd_spec {
     const char *summary;     /* One-line description for help listing */
     const char *long_help;   /* Detailed help text (can be NULL) */
 
-    /* Function to execute the command */
-    int (*run)(int argc, char **argv);
+    /* Function to execute the command. Implementations should honor the
+     * provided input/output streams instead of relying on global stdin/stdout
+     * so threaded pipelines can wire arbitrary descriptors. */
+    int (*run)(int argc, char **argv, FILE *in, FILE *out);
 
     /* Function to print usage/help information */
     void (*print_usage)(FILE *out);
 } cmd_spec_t;
+
+/* Helpers so commands can easily respect pipeline-provided streams. */
+static inline FILE *cmd_get_input(FILE *in_stream)
+{
+    return in_stream ? in_stream : stdin;
+}
+
+static inline FILE *cmd_get_output(FILE *out_stream)
+{
+    return out_stream ? out_stream : stdout;
+}
 
 /**
  * Registry functions
