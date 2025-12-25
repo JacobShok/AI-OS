@@ -12,10 +12,11 @@ comment "/*" "*/" ;
 comment "//" "\n" ;
 comment "#" "\n" ;
 
--- Token for words (command names, arguments, filenames, paths)
--- Matches: letters, digits, underscore, dot, slash, hyphen, tilde
--- Can start with letter, digit, dot, slash, tilde, or hyphen
-token Word ((letter | digit | '_' | '.' | '/' | '~' | '-') (letter | digit | '_' | '.' | '/' | '~' | '-')*) ;
+-- Token for words (command names, arguments, filenames, paths, variables)
+-- Allow shell punctuation such as =, $, and ? so assignments/expansions parse as single tokens
+-- Matches: letters, digits, underscore, dot, slash, hyphen, tilde, $, =, ?, :
+token Word ((letter | digit | '_' | '.' | '/' | '~' | '-' | '$' | '=' | '?')
+            (letter | digit | '_' | '.' | '/' | '~' | '-' | '$' | '=' | ':' | '?')*) ;
 
 -- Token for AI query strings (everything after "AI" until end of line or semicolon)
 -- We'll use the built-in String type which handles quoted strings

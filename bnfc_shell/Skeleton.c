@@ -11,6 +11,7 @@
 #include <stdlib.h>
 #include <stdio.h>
 #include <string.h>
+#include <ctype.h>
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/wait.h>
@@ -473,6 +474,63 @@ static int builtin_help(ExecContext *ctx)
     printf("  exit       - Exit the shell\n");
     printf("  help       - Show this help message\n");
     printf("  cd [DIR]   - Change directory\n");
+    printf("  export VAR[=VALUE] - Export variable to environment\n");
+
+    return EXIT_OK;
+}
+
+/*
+ * Helper function: export built-in
+ * Export shell variables to environment
+ * Usage: export VAR=value  or  export VAR
+ */
+static int builtin_export(ExecContext *ctx)
+{
+    if (ctx->argc < 2) {
+        fprintf(stderr, "export: missing argument\n");
+        fprintf(stderr, "Usage: export VAR=value  or  export VAR\n");
+        return EXIT_ERROR;
+    }
+
+    /* Process each argument */
+    for (int i = 1; i < ctx->argc; i++) {
+        char *arg = ctx->argv[i];
+        char *equals = strchr(arg, '=');
+
+        if (equals) {
+            /* export VAR=value */
+            *equals = '\0';
+            char *name = arg;
+            char *value = equals + 1;
+
+            /* Validate variable name */
+            if (!isalpha((unsigned char)name[0]) && name[0] != '_') {
+                fprintf(stderr, "export: invalid variable name: %s\n", name);
+                *equals = '=';
+                return EXIT_ERROR;
+            }
+
+            /* Set in environment */
+            if (setenv(name, value, 1) != 0) {
+                perror("export");
+                *equals = '=';
+                return EXIT_ERROR;
+            }
+            *equals = '=';
+        } else {
+            /* export VAR (value from shell variables) */
+            const char *value = var_table_get(ctx->variables, arg);
+            if (!value) {
+                fprintf(stderr, "export: %s: not found\n", arg);
+                return EXIT_ERROR;
+            }
+
+            if (setenv(arg, value, 1) != 0) {
+                perror("export");
+                return EXIT_ERROR;
+            }
+        }
+    }
 
     return EXIT_OK;
 }
@@ -516,6 +574,29 @@ void visitSimpleCommand(SimpleCommand p, ExecContext *ctx)
             break;
         }
 
+        /* Handle shell variable assignment (VAR=VALUE) */
+        char *assign_eq = strchr(ctx->argv[0], '=');
+        if (assign_eq && !strchr(ctx->argv[0], '/')) {  /* Ensure it's not a path like /path/to/file=val */
+            *assign_eq = '\0';
+            char *name = ctx->argv[0];
+            char *value = assign_eq + 1;
+
+            /* Variable names must start with letter or underscore */
+            if ((isalpha((unsigned char)name[0]) || name[0] == '_')) {
+                if (var_table_set(ctx->variables, name, value) == 0) {
+                    ctx->exit_status = EXIT_OK;
+                } else {
+                    fprintf(stderr, "Failed to set variable %s\n", name);
+                    ctx->exit_status = EXIT_ERROR;
+                }
+            } else {
+                fprintf(stderr, "Invalid variable name: %s\n", name);
+                ctx->exit_status = EXIT_ERROR;
+            }
+            *assign_eq = '=';  /* Restore for cleanup */
+            break;  /* Don't execute, just set the variable */
+        }
+
         /* === EXECUTION LOGIC === */
 
         if (ctx->in_pipeline) {
@@ -552,6 +633,9 @@ void visitSimpleCommand(SimpleCommand p, ExecContext *ctx)
                 break;
             } else if (strcmp(ctx->argv[0], "help") == 0) {
                 ctx->exit_status = builtin_help(ctx);
+                break;
+            } else if (strcmp(ctx->argv[0], "export") == 0) {
+                ctx->exit_status = builtin_export(ctx);
                 break;
             }
 
@@ -747,7 +831,95 @@ void visitListRedirection(ListRedirection listredirection, ExecContext *ctx)
 }
 
 /*
- * Visit Word - adds word to argv
+ * Expand shell variables in a word
+ * Supports: $VAR, $$, $?, $0
+ * Returns: newly allocated string with expansions (caller must free)
+ */
+static char *expand_variables(const char *word, ExecContext *ctx)
+{
+    char *result = malloc(4096);
+    if (!result) {
+        perror("malloc");
+        return NULL;
+    }
+
+    char *dst = result;
+    const char *src = word;
+    const size_t max_len = 4095;
+
+    while (*src && (size_t)(dst - result) < max_len) {
+        if (*src != '$') {
+            *dst++ = *src++;
+            continue;
+        }
+
+        src++;  /* Skip $ */
+
+        /* $$ - process ID */
+        if (*src == '$') {
+            dst += snprintf(dst, max_len - (dst - result), "%d", getpid());
+            src++;
+            continue;
+        }
+
+        /* $? - last exit status */
+        if (*src == '?') {
+            dst += snprintf(dst, max_len - (dst - result), "%d", ctx->exit_status);
+            src++;
+            continue;
+        }
+
+        /* $0 - shell name */
+        if (*src == '0') {
+            dst += snprintf(dst, max_len - (dst - result), "%s", "picobox");
+            src++;
+            continue;
+        }
+
+        /* Must be alphanumeric or _ to be a variable name */
+        if (!isalnum((unsigned char)*src) && *src != '_') {
+            *dst++ = '$';  /* Not a variable, keep the $ */
+            continue;
+        }
+
+        /* Extract variable name */
+        char name[256];
+        int i = 0;
+        while (*src && (isalnum((unsigned char)*src) || *src == '_') && i < 255) {
+            name[i++] = *src++;
+        }
+        name[i] = '\0';
+
+        if (i == 0) {
+            continue;
+        }
+
+        /* Look up variable (shell vars first, then environment) */
+        const char *value = var_table_get(ctx->variables, name);
+        if (!value) {
+            value = getenv(name);
+        }
+
+        if (!value) {
+            continue;  /* Variable not set, expand to empty string */
+        }
+
+        /* Copy value into result */
+        size_t remaining = max_len - (size_t)(dst - result);
+        size_t value_len = strlen(value);
+        if (value_len > remaining) {
+            value_len = remaining;
+        }
+        memcpy(dst, value, value_len);
+        dst += value_len;
+    }
+
+    *dst = '\0';
+    return result;
+}
+
+/*
+ * Visit Word - adds word to argv with variable expansion
  * This is called for command name and each argument
  */
 void visitWord(Word p, ExecContext *ctx)
@@ -762,10 +934,10 @@ void visitWord(Word p, ExecContext *ctx)
         }
     }
 
-    /* Add word to argv */
-    ctx->argv[ctx->argc] = strdup(p);
+    /* Expand variables and add to argv */
+    ctx->argv[ctx->argc] = expand_variables(p, ctx);
     if (!ctx->argv[ctx->argc]) {
-        perror("strdup");
+        perror("expand_variables");
         exit(1);
     }
     ctx->argc++;

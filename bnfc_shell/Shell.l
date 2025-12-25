@@ -65,7 +65,7 @@ IDENT [a-zA-Z0-9'_]
 <COMMENT2>.    /* skip */;
 <COMMENT2>[\n] /* skip */;
 
-<INITIAL>(\-|\.|\/|\_|\~|({DIGIT}|{LETTER}))+    	 yylval->_string = strdup(yytext); return T_Word;
+<INITIAL>(\$|\=|\?|\:|\-|\.|\/|\_|\~|({DIGIT}|{LETTER}))+    	 yylval->_string = strdup(yytext); return T_Word;
 <INITIAL>[ \t\r\n\f]      	 /* ignore white space. */;
 <INITIAL>.      	 return _ERROR_;
 
