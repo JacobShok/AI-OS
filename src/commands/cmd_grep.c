@@ -58,7 +58,8 @@ static void build_grep_argtable(void)
 
 /* ===== HELPER FUNCTION ===== */
 
-static int grep_file(const char *filename, const char *pattern, int ignore_case, int line_numbers, int invert)
+static int grep_file(const char *filename, const char *pattern, int ignore_case, int line_numbers, int invert,
+                     FILE *stdin_source, FILE *stdout_dest)
 {
     FILE *fp;
     char buffer[8192];
@@ -67,7 +68,7 @@ static int grep_file(const char *filename, const char *pattern, int ignore_case,
     int using_stdin = 0;
 
     if (filename == NULL || strcmp(filename, "-") == 0) {
-        fp = stdin;
+        fp = stdin_source ? stdin_source : stdin;
         using_stdin = 1;
     } else {
         fp = fopen(filename, "r");
@@ -92,10 +93,11 @@ static int grep_file(const char *filename, const char *pattern, int ignore_case,
         }
 
         if (match) {
+            FILE *output = stdout_dest ? stdout_dest : stdout;
             if (line_numbers) {
-                printf("%d:", line_num);
+                fprintf(output, "%d:", line_num);
             }
-            printf("%s", buffer);
+            fprintf(output, "%s", buffer);
             found = 1;
         }
     }
@@ -111,8 +113,6 @@ static int grep_file(const char *filename, const char *pattern, int ignore_case,
 
 int grep_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
     int nerrors;
     int ignore_case = 0;
     int line_numbers = 0;
@@ -157,14 +157,14 @@ int grep_run(int argc, char **argv, FILE *in, FILE *out)
 
     /* If no files, use stdin */
     if (grep_files->count == 0) {
-        ret = grep_file(NULL, pattern, ignore_case, line_numbers, invert);
+        ret = grep_file(NULL, pattern, ignore_case, line_numbers, invert, in, out);
         arg_freetable(grep_argtable, 7);
         return ret;
     }
 
     /* Process each file */
     for (i = 0; i < grep_files->count; i++) {
-        if (grep_file(grep_files->filename[i], pattern, ignore_case, line_numbers, invert) != EXIT_OK) {
+        if (grep_file(grep_files->filename[i], pattern, ignore_case, line_numbers, invert, in, out) != EXIT_OK) {
             ret = EXIT_ERROR;
         }
     }
