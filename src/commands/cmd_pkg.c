@@ -812,9 +812,9 @@ void pkg_print_usage(FILE *out) {
 
 // === RUN FUNCTION ===
 int pkg_run(int argc, char **argv, FILE *in, FILE *out) {
-    (void)in;
-    (void)out;
     int nerrors;
+    (void)in;   /* pkg doesn't use pipeline I/O */
+    (void)out;  /* pkg uses custom I/O */
     int exit_code = EXIT_OK;
 
     // Initialize paths

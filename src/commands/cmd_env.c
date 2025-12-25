@@ -49,8 +49,8 @@ static void build_env_argtable(void)
 
 int env_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
+    (void)in;   /* env doesn't read input */
+    (void)out;  /* env output uses stdout directly */
     int nerrors;
     int i;
 

@@ -46,15 +46,16 @@ static void build_head_argtable(void)
 
 /* ===== HELPER FUNCTION ===== */
 
-static int head_file(const char *filename, int num_lines)
+static int head_file(const char *filename, int num_lines, FILE *stdin_source, FILE *stdout_dest)
 {
     FILE *fp;
     char buffer[8192];
     int lines = 0;
     int using_stdin = 0;
+    FILE *output = stdout_dest ? stdout_dest : stdout;
 
     if (filename == NULL || strcmp(filename, "-") == 0) {
-        fp = stdin;
+        fp = stdin_source ? stdin_source : stdin;
         using_stdin = 1;
     } else {
         fp = fopen(filename, "r");
@@ -65,7 +66,7 @@ static int head_file(const char *filename, int num_lines)
     }
 
     while (lines < num_lines && fgets(buffer, sizeof(buffer), fp) != NULL) {
-        printf("%s", buffer);
+        fprintf(output, "%s", buffer);
         lines++;
     }
 
@@ -86,8 +87,6 @@ static int head_file(const char *filename, int num_lines)
 
 int head_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
     int nerrors;
     int num_lines = 10;  /* default */
     int i;
@@ -126,25 +125,26 @@ int head_run(int argc, char **argv, FILE *in, FILE *out)
 
     /* If no files specified, read from stdin */
     if (head_files->count == 0) {
-        ret = head_file(NULL, num_lines);
+        ret = head_file(NULL, num_lines, in, out);
         arg_freetable(head_argtable, 4);
         return ret;
     }
 
     /* Check if we have multiple files (for headers) */
     multiple_files = (head_files->count > 1);
+    FILE *output = out ? out : stdout;
 
     /* Process each file */
     for (i = 0; i < head_files->count; i++) {
         /* Print header if multiple files */
         if (multiple_files) {
             if (i > 0) {
-                printf("\n");
+                fprintf(output, "\n");
             }
-            printf("==> %s <==\n", head_files->filename[i]);
+            fprintf(output, "==> %s <==\n", head_files->filename[i]);
         }
 
-        if (head_file(head_files->filename[i], num_lines) != EXIT_OK) {
+        if (head_file(head_files->filename[i], num_lines, in, out) != EXIT_OK) {
             ret = EXIT_ERROR;
         }
     }

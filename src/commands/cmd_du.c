@@ -106,7 +106,7 @@ static off_t du_recursive(const char *path, int summary, int human)
 int du_run(int argc, char **argv, FILE *in, FILE *out)
 {
     (void)in;
-    (void)out;
+    (void)out;  /* du output uses stdout directly */
     int nerrors;
     int summary = 0;
     int human = 0;

@@ -52,8 +52,8 @@ static void build_basename_argtable(void)
 
 int basename_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
+    (void)in;  /* basename doesn\'t read input */
+    (void)out;  /* basename output uses stdout directly */
     int nerrors;
     char *result;
     const char *suffix;

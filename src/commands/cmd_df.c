@@ -51,7 +51,7 @@ static void build_df_argtable(void)
 int df_run(int argc, char **argv, FILE *in, FILE *out)
 {
     (void)in;
-    (void)out;
+    (void)out;  /* df output uses stdout directly */
     int nerrors;
     struct statvfs vfs;
     int human = 0;

@@ -79,8 +79,8 @@ static void build_pwd_argtable(void)
  */
 int pwd_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
+    (void)in;  /* pwd doesn\'t read input */
+    (void)out;  /* pwd output uses stdout directly */
     int nerrors;
     int use_logical;
     char cwd[PATH_MAX];

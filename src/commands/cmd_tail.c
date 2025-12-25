@@ -50,7 +50,7 @@ static void build_tail_argtable(void)
 
 /* ===== HELPER FUNCTION ===== */
 
-static int tail_file(const char *filename, int num_lines)
+static int tail_file(const char *filename, int num_lines, FILE *stdin_source, FILE *stdout_dest)
 {
     FILE *fp;
     char **lines;
@@ -59,9 +59,10 @@ static int tail_file(const char *filename, int num_lines)
     int i;
     char buffer[8192];
     int using_stdin = 0;
+    FILE *output = stdout_dest ? stdout_dest : stdout;
 
     if (filename == NULL || strcmp(filename, "-") == 0) {
-        fp = stdin;
+        fp = stdin_source ? stdin_source : stdin;
         using_stdin = 1;
     } else {
         fp = fopen(filename, "r");
@@ -106,7 +107,7 @@ static int tail_file(const char *filename, int num_lines)
     for (i = 0; i < num_lines; i++) {
         int idx = (start + i) % num_lines;
         if (lines[idx]) {
-            printf("%s", lines[idx]);
+            fprintf(output, "%s", lines[idx]);
         }
     }
 
@@ -127,8 +128,6 @@ static int tail_file(const char *filename, int num_lines)
 
 int tail_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
     int nerrors;
     int num_lines = DEFAULT_LINES;
     int i;
@@ -167,25 +166,26 @@ int tail_run(int argc, char **argv, FILE *in, FILE *out)
 
     /* If no files specified, read from stdin */
     if (tail_files->count == 0) {
-        ret = tail_file(NULL, num_lines);
+        ret = tail_file(NULL, num_lines, in, out);
         arg_freetable(tail_argtable, 4);
         return ret;
     }
 
     /* Check if we have multiple files (for headers) */
     multiple_files = (tail_files->count > 1);
+    FILE *output = out ? out : stdout;
 
     /* Process each file */
     for (i = 0; i < tail_files->count; i++) {
         /* Print header if multiple files */
         if (multiple_files) {
             if (i > 0) {
-                printf("\n");
+                fprintf(output, "\n");
             }
-            printf("==> %s <==\n", tail_files->filename[i]);
+            fprintf(output, "==> %s <==\n", tail_files->filename[i]);
         }
 
-        if (tail_file(tail_files->filename[i], num_lines) != EXIT_OK) {
+        if (tail_file(tail_files->filename[i], num_lines, in, out) != EXIT_OK) {
             ret = EXIT_ERROR;
         }
     }

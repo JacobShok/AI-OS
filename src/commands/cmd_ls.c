@@ -27,8 +27,8 @@
 /* Forward declarations */
 int ls_run(int argc, char **argv, FILE *in, FILE *out);
 void ls_print_usage(FILE *out);
-static void print_long_format(const char *path, const char *name, int human);
-static int ls_dir(const char *path, int show_all, int long_format, int human);
+static void print_long_format(const char *path, const char *name, int human, FILE *out);
+static int ls_dir(const char *path, int show_all, int long_format, int human, FILE *out);
 
 /* ===== SECTION 1: ARGTABLE STRUCTURES ===== */
 
@@ -62,8 +62,9 @@ static void build_ls_argtable(void)
 
 /* ===== HELPER FUNCTIONS ===== */
 
-static void print_long_format(const char *path, const char *name, int human)
+static void print_long_format(const char *path, const char *name, int human, FILE *out)
 {
+    FILE *output = out ? out : stdout;
     struct stat st;
     char full_path[4096];
     char time_buf[64];
@@ -79,46 +80,47 @@ static void print_long_format(const char *path, const char *name, int human)
     }
 
     /* File type and permissions */
-    printf("%c", S_ISDIR(st.st_mode) ? 'd' : S_ISLNK(st.st_mode) ? 'l' : '-');
-    printf("%c", (st.st_mode & S_IRUSR) ? 'r' : '-');
-    printf("%c", (st.st_mode & S_IWUSR) ? 'w' : '-');
-    printf("%c", (st.st_mode & S_IXUSR) ? 'x' : '-');
-    printf("%c", (st.st_mode & S_IRGRP) ? 'r' : '-');
-    printf("%c", (st.st_mode & S_IWGRP) ? 'w' : '-');
-    printf("%c", (st.st_mode & S_IXGRP) ? 'x' : '-');
-    printf("%c", (st.st_mode & S_IROTH) ? 'r' : '-');
-    printf("%c", (st.st_mode & S_IWOTH) ? 'w' : '-');
-    printf("%c", (st.st_mode & S_IXOTH) ? 'x' : '-');
+    fprintf(output, "%c", S_ISDIR(st.st_mode) ? 'd' : S_ISLNK(st.st_mode) ? 'l' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IRUSR) ? 'r' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IWUSR) ? 'w' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IXUSR) ? 'x' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IRGRP) ? 'r' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IWGRP) ? 'w' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IXGRP) ? 'x' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IROTH) ? 'r' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IWOTH) ? 'w' : '-');
+    fprintf(output, "%c", (st.st_mode & S_IXOTH) ? 'x' : '-');
 
     /* Number of links */
-    printf(" %3ld", (long)st.st_nlink);
+    fprintf(output, " %3ld", (long)st.st_nlink);
 
     /* Owner and group */
     pw = getpwuid(st.st_uid);
     gr = getgrgid(st.st_gid);
-    printf(" %-8s", pw ? pw->pw_name : "unknown");
-    printf(" %-8s", gr ? gr->gr_name : "unknown");
+    fprintf(output, " %-8s", pw ? pw->pw_name : "unknown");
+    fprintf(output, " %-8s", gr ? gr->gr_name : "unknown");
 
     /* Size */
     if (human) {
         format_size(st.st_size, size_buf, sizeof(size_buf));
-        printf(" %8s", size_buf);
+        fprintf(output, " %8s", size_buf);
     } else {
-        printf(" %8ld", (long)st.st_size);
+        fprintf(output, " %8ld", (long)st.st_size);
     }
 
     /* Modification time */
     format_time(st.st_mtime, time_buf, sizeof(time_buf));
-    printf(" %s", time_buf);
+    fprintf(output, " %s", time_buf);
 
     /* Name */
-    printf(" %s\n", name);
+    fprintf(output, " %s\n", name);
 }
 
-static int ls_dir(const char *path, int show_all, int long_format, int human)
+static int ls_dir(const char *path, int show_all, int long_format, int human, FILE *out)
 {
     DIR *dir;
     struct dirent *entry;
+    FILE *output = out ? out : stdout;
 
     dir = opendir(path);
     if (!dir) {
@@ -133,9 +135,9 @@ static int ls_dir(const char *path, int show_all, int long_format, int human)
         }
 
         if (long_format) {
-            print_long_format(path, entry->d_name, human);
+            print_long_format(path, entry->d_name, human, out);
         } else {
-            printf("%s\n", entry->d_name);
+            fprintf(output, "%s\n", entry->d_name);
         }
     }
 
@@ -147,8 +149,7 @@ static int ls_dir(const char *path, int show_all, int long_format, int human)
 
 int ls_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
+    (void)in;  /* ls doesn't read input */
     int nerrors;
     int show_all = 0;
     int long_format = 0;
@@ -189,14 +190,14 @@ int ls_run(int argc, char **argv, FILE *in, FILE *out)
 
     /* If no directory specified, use current directory */
     if (ls_paths->count == 0) {
-        ret = ls_dir(".", show_all, long_format, human);
+        ret = ls_dir(".", show_all, long_format, human, out);
         arg_freetable(ls_argtable, 6);
         return ret;
     }
 
     /* List each directory */
     for (i = 0; i < ls_paths->count; i++) {
-        if (ls_dir(ls_paths->filename[i], show_all, long_format, human) != EXIT_OK) {
+        if (ls_dir(ls_paths->filename[i], show_all, long_format, human, out) != EXIT_OK) {
             ret = EXIT_ERROR;
         }
     }

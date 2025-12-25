@@ -48,8 +48,8 @@ static void build_dirname_argtable(void)
 
 int dirname_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
+    (void)in;  /* dirname doesn\'t read input */
+    (void)out;  /* dirname output uses stdout directly */
     int nerrors;
     char *result;
 

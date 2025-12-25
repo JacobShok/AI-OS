@@ -47,7 +47,7 @@ static void build_stat_argtable(void)
 int stat_run(int argc, char **argv, FILE *in, FILE *out)
 {
     (void)in;
-    (void)out;
+    (void)out;  /* stat output uses stdout directly */
     int nerrors;
     struct stat st;
     int i;

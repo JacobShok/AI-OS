@@ -111,7 +111,7 @@ static void find_recursive(const char *path, const char *name_pattern, char type
 int find_run(int argc, char **argv, FILE *in, FILE *out)
 {
     (void)in;
-    (void)out;
+    (void)out;  /* find output uses stdout directly */
     int nerrors;
     const char *start_path = ".";
     const char *name_pattern = NULL;
