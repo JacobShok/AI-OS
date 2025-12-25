@@ -71,6 +71,15 @@ ExecContext *exec_context_new(void)
     ctx->should_exit = 0;
     ctx->has_error = 0;
 
+    /* Initialize variable table */
+    ctx->variables = var_table_create(64); /* 64 buckets should be enough */
+    if (!ctx->variables) {
+        free(ctx->pids);
+        free(ctx->argv);
+        free(ctx);
+        return NULL;
+    }
+
     return ctx;
 }
 
@@ -102,6 +111,9 @@ void exec_context_free(ExecContext *ctx)
 
     /* Free PID array */
     free(ctx->pids);
+
+    /* Free variable table */
+    var_table_destroy(ctx->variables);
 
     free(ctx);
 }

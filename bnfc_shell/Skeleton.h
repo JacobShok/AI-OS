@@ -6,6 +6,7 @@
 
 #include "Absyn.h"
 #include "../include/redirect_helpers.h"
+#include "../include/var_table.h"
 
 /*
  * Execution Context - holds state during AST traversal
@@ -43,6 +44,9 @@ typedef struct exec_context {
     int exit_status;       /* Last command exit status */
     int should_exit;       /* Set to 1 if shell should exit */
     int has_error;         /* Flag for errors during tree walk */
+
+    /* Shell variables */
+    var_table_t *variables; /* Hash table for shell variables */
 } ExecContext;
 
 /* Context management functions */

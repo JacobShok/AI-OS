@@ -41,7 +41,7 @@ LEGACY_CMD_SRCS = \
 # Main source files
 MAIN_SRCS = $(SRC_DIR)/main.c $(SRC_DIR)/utils.c $(SRC_DIR)/shell.c \
             $(SRC_DIR)/shell_bnfc.c $(SRC_DIR)/exec_helpers.c $(SRC_DIR)/pipe_helpers.c \
-            $(SRC_DIR)/redirect_helpers.c $(SRC_DIR)/cmd_compat.c
+            $(SRC_DIR)/redirect_helpers.c $(SRC_DIR)/cmd_compat.c $(SRC_DIR)/var_table.c
 
 # Combine all sources
 SRCS = $(MAIN_SRCS) $(LEGACY_CMD_SRCS) $(CORE_SRCS)
