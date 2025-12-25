@@ -75,10 +75,10 @@ static void build_echo_argtable(void)
  */
 int echo_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
+    (void)in;  /* echo doesn't read input */
     int nerrors;
     int i;
+    FILE *output = out ? out : stdout;
 
     /* Build argtable definition */
     build_echo_argtable(); // Sets up arg_lit, arg_str structures
@@ -108,19 +108,19 @@ int echo_run(int argc, char **argv, FILE *in, FILE *out)
     for (i = 0; i < echo_args->count; i++) {
         /* Add space between arguments (but not before first one) */
         if (i > 0) {
-            printf(" ");
+            fprintf(output, " ");
         }
         /* Print the argument */
-        printf("%s", echo_args->sval[i]);
+        fprintf(output, "%s", echo_args->sval[i]);
     }
 
     /* Print newline unless -n was specified */
     if (echo_no_newline->count == 0) {
-        printf("\n");
+        fprintf(output, "\n");
     }
 
     /* Flush output to ensure it appears immediately */
-    fflush(stdout);
+    fflush(output);
 
     /* Clean up and return */
     arg_freetable(echo_argtable, 4);

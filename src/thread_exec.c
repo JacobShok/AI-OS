@@ -16,7 +16,15 @@ void *thread_execute_builtin(void *arg)
 {
     thread_args_t *targs = (thread_args_t *)arg;
     int status = EXIT_ERROR;
-    FILE *in = targs->stdin_stream ? targs->stdin_stream : stdin;
+
+    /* CRITICAL: For stdin, do NOT fall back to the shell's stdin!
+     * If stdin_stream is NULL, it means this is the first command in a pipeline
+     * and should read from its own stdin (NULL is fine, commands will handle it).
+     *
+     * For stdout, if stdout_stream is NULL, this is the last command and should
+     * write to the terminal's stdout.
+     */
+    FILE *in = targs->stdin_stream;   /* NULL if first command - that's OK */
     FILE *out = targs->stdout_stream ? targs->stdout_stream : stdout;
 
     status = targs->spec->run(targs->argc, targs->argv, in, out);

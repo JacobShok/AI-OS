@@ -49,8 +49,9 @@ static void build_cat_argtable(void)
 /*
  * Cat a single file to stdout
  * If filename is "-" or NULL, read from stdin
+ * The stdin_source parameter is the FILE* to use for stdin (from pipeline or global stdin)
  */
-static int cat_file(const char *filename, int number_lines, int *line_number)
+static int cat_file(const char *filename, int number_lines, int *line_number, FILE *stdin_source, FILE *stdout_dest)
 {
     FILE *fp;
     char buffer[8192];
@@ -58,7 +59,7 @@ static int cat_file(const char *filename, int number_lines, int *line_number)
 
     /* Determine input source */
     if (filename == NULL || strcmp(filename, "-") == 0) {
-        fp = stdin;
+        fp = stdin_source ? stdin_source : stdin;
         using_stdin = 1;
     } else {
         fp = fopen(filename, "r");
@@ -69,16 +70,18 @@ static int cat_file(const char *filename, int number_lines, int *line_number)
     }
 
     /* Read and output the file */
+    FILE *output = stdout_dest ? stdout_dest : stdout;
+
     if (number_lines) {
         /* Line-by-line with numbering */
         while (fgets(buffer, sizeof(buffer), fp) != NULL) {
-            printf("%6d  %s", (*line_number)++, buffer);
+            fprintf(output, "%6d  %s", (*line_number)++, buffer);
         }
     } else {
         /* Efficient block read */
         size_t bytes_read;
         while ((bytes_read = fread(buffer, 1, sizeof(buffer), fp)) > 0) {
-            if (fwrite(buffer, 1, bytes_read, stdout) != bytes_read) {
+            if (fwrite(buffer, 1, bytes_read, output) != bytes_read) {
                 perror("cat: write error");
                 if (!using_stdin) fclose(fp);
                 return EXIT_ERROR;
@@ -105,8 +108,6 @@ static int cat_file(const char *filename, int number_lines, int *line_number)
 
 int cat_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
     int nerrors;
     int number_lines;
     int line_number = 1;
@@ -137,11 +138,11 @@ int cat_run(int argc, char **argv, FILE *in, FILE *out)
 
     /* If no files specified, read from stdin */
     if (cat_files->count == 0) {
-        ret = cat_file(NULL, number_lines, &line_number);
+        ret = cat_file(NULL, number_lines, &line_number, in, out);
     } else {
         /* Process each file */
         for (i = 0; i < cat_files->count; i++) {
-            if (cat_file(cat_files->filename[i], number_lines, &line_number) != EXIT_OK) {
+            if (cat_file(cat_files->filename[i], number_lines, &line_number, in, out) != EXIT_OK) {
                 ret = EXIT_ERROR;
                 /* Continue processing remaining files */
             }

@@ -56,7 +56,8 @@ static void build_wc_argtable(void)
 /* ===== HELPER FUNCTION ===== */
 
 static int wc_file(const char *filename, int show_lines, int show_words, int show_bytes,
-                   long *total_lines, long *total_words, long *total_bytes)
+                   long *total_lines, long *total_words, long *total_bytes,
+                   FILE *stdin_source, FILE *stdout_dest)
 {
     FILE *fp;
     int ch;
@@ -67,7 +68,7 @@ static int wc_file(const char *filename, int show_lines, int show_words, int sho
     int using_stdin = 0;
 
     if (filename == NULL || strcmp(filename, "-") == 0) {
-        fp = stdin;
+        fp = stdin_source ? stdin_source : stdin;
         using_stdin = 1;
     } else {
         fp = fopen(filename, "r");
@@ -99,13 +100,14 @@ static int wc_file(const char *filename, int show_lines, int show_words, int sho
     }
 
     /* Print results */
-    if (show_lines) printf(" %7ld", lines);
-    if (show_words) printf(" %7ld", words);
-    if (show_bytes) printf(" %7ld", bytes);
+    FILE *output = stdout_dest ? stdout_dest : stdout;
+    if (show_lines) fprintf(output, " %7ld", lines);
+    if (show_words) fprintf(output, " %7ld", words);
+    if (show_bytes) fprintf(output, " %7ld", bytes);
     if (filename && strcmp(filename, "-") != 0) {
-        printf(" %s", filename);
+        fprintf(output, " %s", filename);
     }
-    printf("\n");
+    fprintf(output, "\n");
 
     /* Update totals */
     *total_lines += lines;
@@ -123,8 +125,6 @@ static int wc_file(const char *filename, int show_lines, int show_words, int sho
 
 int wc_run(int argc, char **argv, FILE *in, FILE *out)
 {
-    (void)in;
-    (void)out;
     int nerrors;
     int show_lines, show_words, show_bytes;
     long total_lines = 0, total_words = 0, total_bytes = 0;
@@ -166,22 +166,23 @@ int wc_run(int argc, char **argv, FILE *in, FILE *out)
     /* If no files specified, read from stdin */
     if (wc_files->count == 0) {
         ret = wc_file(NULL, show_lines, show_words, show_bytes,
-                      &total_lines, &total_words, &total_bytes);
+                      &total_lines, &total_words, &total_bytes, in, out);
     } else {
         /* Process each file */
         for (i = 0; i < wc_files->count; i++) {
             if (wc_file(wc_files->filename[i], show_lines, show_words, show_bytes,
-                       &total_lines, &total_words, &total_bytes) != EXIT_OK) {
+                       &total_lines, &total_words, &total_bytes, in, out) != EXIT_OK) {
                 ret = EXIT_ERROR;
             }
         }
 
         /* Print totals if more than one file */
         if (wc_files->count > 1) {
-            if (show_lines) printf(" %7ld", total_lines);
-            if (show_words) printf(" %7ld", total_words);
-            if (show_bytes) printf(" %7ld", total_bytes);
-            printf(" total\n");
+            FILE *output = out ? out : stdout;
+            if (show_lines) fprintf(output, " %7ld", total_lines);
+            if (show_words) fprintf(output, " %7ld", total_words);
+            if (show_bytes) fprintf(output, " %7ld", total_bytes);
+            fprintf(output, " total\n");
         }
     }
 
